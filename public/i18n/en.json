@@ -316,5 +316,18 @@
   "samplePreview": "Sample data preview · no bank connection",
   "previewOnly": "Preview only. Sign in to recalculate before confirmation.",
   "authenticatedReplan": "Recalculate my plan using my signed-in account and connected spending data",
-  "connectSample": "Connect sample profile"
+  "connectSample": "Connect sample profile",
+  "whatif_ioana": "I need the money for a car in 2 years",
+  "whatif_andrei": "My rent increases by 50 lei",
+  "whatif_mihai": "I got a bonus of 1000 lei",
+  "whatif_elena": "I need the money in 1 year",
+  "question_ioana": "What if the market drops?",
+  "question_andrei": "What do you know about me?",
+  "question_mihai": "Can I withdraw anytime?",
+  "question_elena": "What fees will I pay?",
+  "cardEmpty": "No result is available yet. Ask a question to start the analysis.",
+  "cardError": "This calculation could not be completed. Review the activity panel and try again.",
+  "emptyActivity": "Your tool calls will appear here when you ask a question.",
+  "fallbackProvider": "The model could not complete this turn. The offline planner answered using the same tools.",
+  "cardDetails": "Open calculation details"
 }

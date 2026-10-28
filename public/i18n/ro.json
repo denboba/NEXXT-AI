@@ -316,5 +316,18 @@
   "samplePreview": "Previzualizare date exemplu · fără conexiune bancară",
   "previewOnly": "Doar previzualizare. Autentifică-te pentru recalculare înainte de confirmare.",
   "authenticatedReplan": "Recalculează planul cu contul autentificat și cheltuielile conectate",
-  "connectSample": "Conectează profilul exemplu"
+  "connectSample": "Conectează profilul exemplu",
+  "whatif_ioana": "Am nevoie de bani pentru o mașină în 2 ani",
+  "whatif_andrei": "Chiria crește cu 50 lei",
+  "whatif_mihai": "Am primit un bonus de 1000 lei",
+  "whatif_elena": "Am nevoie de bani în 1 an",
+  "question_ioana": "Ce se întâmplă dacă piața scade?",
+  "question_andrei": "Ce știi despre mine?",
+  "question_mihai": "Pot retrage oricând?",
+  "question_elena": "Ce comisioane plătesc?",
+  "cardEmpty": "Nu există încă un rezultat. Pune o întrebare pentru a începe analiza.",
+  "cardError": "Calculul nu a putut fi finalizat. Verifică activitatea și încearcă din nou.",
+  "emptyActivity": "Apelurile instrumentelor apar aici când pui o întrebare.",
+  "fallbackProvider": "Modelul nu a finalizat răspunsul. Planificatorul offline a răspuns cu aceleași instrumente.",
+  "cardDetails": "Deschide detaliile calculului"
 }

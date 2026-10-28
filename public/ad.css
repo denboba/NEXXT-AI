@@ -8,4 +8,4 @@
 .ad .art span{opacity:.85}
 .ad .cta{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--card);border-top:2px solid var(--line);gap:10px}
 .ad .cta a{text-decoration:none}
-.chan{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--mute)}
+.chan{font-size:16px;letter-spacing:2px;text-transform:uppercase;color:var(--mute)}

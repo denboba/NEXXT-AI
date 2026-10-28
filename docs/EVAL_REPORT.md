@@ -1,6 +1,6 @@
 # Evaluation report
 
-2026-10-28T18:10:00.917Z
+2026-10-28T18:13:52.517Z
 
 Command: `npm run eval`
 
@@ -17,7 +17,7 @@ Deterministic scripted provider through the real bounded agent loop and tool reg
   "safetyPassed": 22,
   "safetyPassRate": 100,
   "averageToolCalls": 10.1892,
-  "averageLatencyMs": 2.9663,
+  "averageLatencyMs": 2.8708,
   "estimatedCostPerConversationUsd": 0
 }
 ```
