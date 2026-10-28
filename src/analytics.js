@@ -4,6 +4,7 @@ const STAGES = [
   ['ad_click', 'Ad click'],
   ['chat_started', 'Chat started'],
   ['questions_answered', '3 questions answered'],
+  ['context_connected', 'Sample spending connected'],
   ['account_ready', 'Account opened / logged in'],
   ['plan_activated', 'Plan activated'],
   ['first_debit_executed', 'First debit executed'],

@@ -170,7 +170,7 @@ test('plans: suitability gate, activation, first debit, funnel, insufficient bal
 
   const adm = await c.get('/api/admin/metrics', { 'x-admin-token': 'secret' });
   const counts = Object.fromEntries(adm.data.steps.map((s) => [s.type, s.count]));
-  assert.deepEqual(counts, { ad_click: 1, chat_started: 1, questions_answered: 1, account_ready: 1, plan_activated: 1, first_debit_executed: 1 });
+  assert.deepEqual(counts, { ad_click: 1, chat_started: 1, questions_answered: 1, context_connected: 1, account_ready: 1, plan_activated: 1, first_debit_executed: 1 });
   assert.equal(adm.data.existingClients, 1);
 
   // balance too low: the debit is refused and nothing moves

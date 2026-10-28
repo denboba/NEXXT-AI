@@ -4,6 +4,9 @@ const { t } = require('../i18n');
 function next({ text, results, risk, memory = {} }) {
   const input = intent(text);
   if (input.conversation) return require('./conversation').next(input.conversation, results);
+  if (results.propose_plan?.proposal?.preview && !results.request_authentication) {
+    return { toolCalls: [call('request_authentication', { kind: 'login' })] };
+  }
   if (!results.get_customer_profile) return { toolCalls: [call('get_customer_profile'),call('get_spending_summary'),call('find_savings_capacity')] };
   if (results.get_customer_profile.error) return results.request_authentication ? {text:''} : { toolCalls: [call('request_authentication',{kind:'login'})], stopAfterTools:true };
   const missing=['get_spending_summary','find_savings_capacity'].filter(name=>!results[name]);
@@ -64,7 +67,7 @@ function answer(results,risk,language='en') {
   }
   if(results.amountRejected) return t(language,'amountOutside');
   if(results.clarification) return t(language,results.clarification==='bonus'?'clarifyBonus':'clarifyRent');
-  if(results.request_authentication) return t(language,'needHistory');
+  if(results.request_authentication && !results.propose_plan?.proposal?.preview) return t(language,'needHistory');
   if(results.handoff_to_adviser) return t(language,'handoffDone');
   const p=results.get_customer_profile,cap=results.find_savings_capacity;
   if(!p || p.error || !cap || cap.error) return t(language,'unavailable');
@@ -85,7 +88,9 @@ function answer(results,risk,language='en') {
       risk: t(language, 'riskLabel_' + ({ low: 2, medium: 3, high: 5 }[change.risk] || 2)),
     });
   }
-  if(results.propose_plan?.proposal) text+=' '+t(language,'confirmRequired');
+  if(results.propose_plan?.proposal) {
+    text += ' ' + t(language,results.propose_plan.proposal.preview ? 'previewReady' : 'confirmRequired');
+  }
   else if(results.propose_plan?.error) text+=' '+t(language,'proposalBlocked');
   else if(!risk) text+=' '+t(language,cap.bufferReady?'riskQuestion':'savingQuestion');
   return text;

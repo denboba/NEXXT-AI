@@ -76,7 +76,7 @@ async function boot() {
 async function loadMe() {
   const d = await api('GET', '/api/me');
   S.me = d;
-  S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user']) };
+  S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user', 'sampleProfile', 'requiresReplan', 'proposalVersion']) };
 }
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => k in o).map((k) => [k, o[k]]));
 
@@ -88,7 +88,7 @@ async function refreshPanel() {
 }
 
 // ---------- chat ----------
-async function send(input) {
+async function send(input, path = '/api/chat') {
   if (S.pending) return;
   S.pending = true; S.error = null; render();
   const turnId = window.crypto?.randomUUID?.();
@@ -107,9 +107,9 @@ async function send(input) {
   };
   S.progressTimer = setTimeout(poll, 200);
   try {
-    const r = await api('POST', '/api/chat', { ...input, turnId });
+    const r = await api('POST', path, { ...input, turnId });
     S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason','providerCalls']) };
-    S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user','proposalVersion']), messages: r.history };
+    S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user', 'proposalVersion', 'sampleProfile', 'requiresReplan']), messages: r.history };
     if (S.snap.profile.years) S.years = S.snap.profile.years;
     await refreshPanel();
   } catch (e) { S.error = e.message; }
@@ -153,7 +153,7 @@ function renderWidget(w, { active }) {
     if (w.slider) {
       const out = h('b', null, `${fmt(w.slider.value)} lei`);
       const r = h('input', { type: 'range', min: w.slider.min, max: w.slider.max, step: w.slider.step, value: w.slider.value, disabled: !active || S.pending, 'aria-label': t("monthlyAmount"),
-        oninput: () => { oulabelNode.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
+        oninput: () => { out.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
       return h('div', { class: 'widget' }, row, h('div', { class: 'slider' }, h('label', null, h('span', null, t("slideAmount")), out), r));
     }
     return row;
@@ -170,6 +170,13 @@ function renderWidget(w, { active }) {
     return h('div', { class: 'cta widget' },
       h('button', { class: 'btn alt', onclick: () => go('signup') }, w.options[0].label + ' →'),
       h('button', { class: 'btn ghost', onclick: () => go('login') }, w.options[1].label));
+  }
+  if (w.type === 'connect_context') {
+    const select = h('select', { 'aria-label': t('chooseSample') }, S.personas.map(persona =>
+      h('option', { value: persona.id }, persona.name + ' · ' + persona.description)));
+    return h('div', { class: 'widget sample-connect' }, h('p', null, t('samplePreview')), select,
+      h('button', { class: 'btn', disabled: S.pending || Boolean(S.snap.sampleProfile) || Boolean(S.snap.user?.synthetic),
+        onclick: () => send({ persona: select.value }, '/api/context/connect') }, t('connectDemo')));
   }
   if (w.type === 'products') return productsWidget(w, active);
   if (w.type === 'handoff_form') return handoffForm();
@@ -276,7 +283,7 @@ function lineChart(sim) {
 function simPanel(sim, profile) {
   const out = h('b', null, `${fmt(sim.monthly)} lei`);
   const r = h('input', { type: 'range', min: 100, max: 2000, step: 50, value: sim.monthly, 'aria-label': t("monthlyAmount"), disabled: S.snap.stage === 'app' && profile.risk,
-    oninput: () => { oulabelNode.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
+    oninput: () => { out.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
   const seg = h('div', { class: 'seg' }, [3, 5, 10].map((y) => h('button', { class: `chip ${y === sim.years ? 'on' : ''}`, type: 'button', onclick: () => send({ type: 'choice', id: `y${y}` }) }, t("years", {years:y}))));
   return h('section', { class: 'card' },
     h('p', { class: 'eyebrow' }, t("liveNumbers")),
@@ -394,8 +401,9 @@ function signupView() {
         su.demoCode ? h('div', { class: 'sms' }, t("demoSms"), h('b', null, su.demoCode)) : null,
         h('form', { onsubmit: (e) => { e.preventDefault(); run(async () => {
           const d = await api('POST', '/api/signup/otp/verify', { code: val(e.target, 'code') });
-          S.me = d; S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user']) };
-          S.signup = { step: 'details', data: {}, demoCode: null, sentTo: null }; S.view = 'chat'; render(); }); } },
+          S.me = d; S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user', 'sampleProfile', 'requiresReplan', 'proposalVersion']) };
+          S.signup = { step: 'details', data: {}, demoCode: null, sentTo: null }; S.view = 'chat'; render();
+          if (S.snap.requiresReplan) await send({ type: 'text', text: t('authenticatedReplan') }); }); } },
           field(t("sixCode"), 'code', { inputmode: 'numeric', maxlength: 6, autocomplete: 'one-time-code', required: true }),
           h('button', { class: 'btn', type: 'submit' }, t("signOpen"))));
     }
@@ -442,8 +450,10 @@ async function pollLogin() {
     const r = await api('GET', `/api/login/status?requestId=${L.requestId}`);
     L.status = r.status;
     if (r.status === 'approved') {
-      S.me = r; S.snap = { ...S.snap, ...pick(r, ['messages', 'profile', 'stage', 'step', 'user']) };
-      S.login = { requestId: null, status: null, timer: null }; S.view = 'chat'; render(); return;
+      S.me = r; S.snap = { ...S.snap, ...pick(r, ['messages', 'profile', 'stage', 'step', 'user', 'sampleProfile', 'requiresReplan', 'proposalVersion']) };
+      S.login = { requestId: null, status: null, timer: null }; S.view = 'chat'; render();
+      if (S.snap.requiresReplan) await send({ type: 'text', text: t('authenticatedReplan') });
+      return;
     }
     if (r.status === 'pending') L.timer = setTimeout(pollLogin, 1500);
     else render();
@@ -552,6 +562,12 @@ function agentCard(card) {
       p.replacesPlanId ? row(t('previousMonthly'),money(p.previousMonthly)) : null,
       row(t('monthlyAmount'),money(p.monthly)),row(t('expires'),new Date(p.expires).toLocaleTimeString(I18n.locale)),
       h('p',{class:'disc'},t(confirmed?'planActiveNoDebit':p.replacesPlanId?'replacementOnly':'proposalOnly')));
+    if (p.preview) {
+      box.append(h('p', null, t('previewOnly')), h('div', { class: 'proposal-actions' },
+        h('button', { class: 'btn', disabled: stale || S.pending, onclick: () => go('login') }, t('loginTitle')),
+        h('button', { class: 'btn ghost', disabled: stale || S.pending, onclick: () => go('signup') }, t('openAccount'))));
+      return box;
+    }
     const fail=h('p',{class:'err',role:'status'});
     box.append(h('div',{class:'proposal-actions'},h('button',{class:'btn',disabled:confirmed || stale || S.pending,onclick:async event=>{
       const button=event.currentTarget;button.disabled=true;

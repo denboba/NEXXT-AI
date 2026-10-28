@@ -30,10 +30,7 @@ function valid(value, spec) {
   return typeof value === 'number' && Number.isFinite(value) && (spec.type !== 'integer' || Number.isInteger(value)) && value >= spec.minimum && value <= spec.maximum;
 }
 function context(store, journey) {
-  const customer = journey.userId && store.db.customers[journey.userId];
-  const account = journey.userId && bank.accountOf(store, journey.userId);
-  if (!customer || !account) throw new bank.BankError('Synthetic spending history is unavailable. Select a demo persona or speak to an adviser.', 409);
-  return { customer, account };
+  return require('../data/context').resolve(store, journey);
 }
 function compare(customer, input, cap) {
   const horizon = input.horizonYears || customer.horizonYears;
@@ -60,10 +57,11 @@ function createTools({ store, journey }) {
       const { customer, cap } = state();
       const { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf } = customer;
       const pending = Object.values(store.db.proposals).find(proposal => proposal.journeyId === journey.id
-        && proposal.userId === journey.userId && proposal.version === journey.proposalVersion
+        && proposal.userId === (journey.userId || null) && proposal.version === journey.proposalVersion
         && proposal.expires > Date.now()
         && !Object.values(store.db.plans).some(plan => plan.proposalId === proposal.id));
-      const active = Object.values(store.db.plans).find(plan => plan.userId === journey.userId && plan.status === 'active');
+      const active = journey.userId && Object.values(store.db.plans)
+        .find(plan => plan.userId === journey.userId && plan.status === 'active');
       const fallbackProduct = segment === 'business' ? 'business-deposit-ladder'
         : !cap.bufferReady ? 'buffer-savings' : 'diversified-fund';
       const planning = {
@@ -74,7 +72,8 @@ function createTools({ store, journey }) {
         hasPending: Boolean(pending),
         hasActive: Boolean(active),
       };
-      return { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf, planning };
+      return { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf, planning,
+        authenticated: Boolean(journey.userId), samplePreview: !journey.userId };
     },
     get_spending_summary({ months = 12 }) { const data = spending(state().customer, months); return { ...data, ui: { type: 'budget', ...data } }; },
     find_savings_capacity() { const data = state().cap; return { ...data, ui: { type: 'capacity', ...data } }; },
@@ -116,7 +115,14 @@ function createTools({ store, journey }) {
       const proposal = bank.proposePlan(store, journey, input);
       return { proposal, ui: { type: 'plan_proposal', proposal } };
     },
-    request_authentication({ kind }) { return { required: !journey.userId, ui: { type: 'auth', kind } }; },
+    request_authentication({ kind }) {
+      const ready = Object.values(store.db.proposals).some(proposal => proposal.journeyId === journey.id
+        && proposal.preview && proposal.version === journey.proposalVersion);
+      if (!journey.userId && journey.sampleCustomerId && !ready) {
+        throw new bank.BankError('Analyze the connected sample and prepare a preview before asking for an account.');
+      }
+      return { required: !journey.userId, ui: { type: 'auth', kind } };
+    },
     handoff_to_adviser({ reason }) {
       const id = require('node:crypto').randomUUID();
       store.db.handoffs.push({ id, journeyId: journey.id, phone: 'Demo adviser queue', name: null, at: new Date().toISOString(), reason, transcript: (journey.messages || []).slice(-40).map(({ role, text }) => ({ role, text })) }); store.save();

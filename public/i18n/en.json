@@ -310,5 +310,11 @@
   "progress_propose_plan": "Preparing a proposal for your review…",
   "progress_request_authentication": "Preparing account connection…",
   "progress_handoff_to_adviser": "Requesting an adviser…",
-  "elapsed": "Elapsed: {seconds} seconds"
+  "elapsed": "Elapsed: {seconds} seconds",
+  "connectDemo": "Connect my accounts (demo)",
+  "chooseSample": "Choose sample spending data",
+  "samplePreview": "Sample data preview · no bank connection",
+  "previewOnly": "Preview only. Sign in to recalculate before confirmation.",
+  "authenticatedReplan": "Recalculate my plan using my signed-in account and connected spending data",
+  "connectSample": "Connect sample profile"
 }

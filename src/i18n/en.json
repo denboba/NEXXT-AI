@@ -138,5 +138,7 @@
   "liquidity_locked": "Locked until maturity",
   "amountChangeExplained": "Your chosen monthly amount changed from {before} to {after} lei; the safe capacity remains {amount} lei. Review the replacement proposal.",
   "riskChangeExplained": "Your explicit risk answer changed to {risk}; I compared the products again before replacing the proposal.",
-  "activePlanAvailable": "Your {product} plan is already active at {monthly} lei monthly. Ask about it or request a different monthly amount; an update still needs a fresh confirmation."
+  "activePlanAvailable": "Your {product} plan is already active at {monthly} lei monthly. Ask about it or request a different monthly amount; an update still needs a fresh confirmation.",
+  "connectQuestion": "Want me to use your spending instead of a guess? Connect a sample profile below. This demo reads synthetic data only; it does not connect a bank.",
+  "previewReady": "This is a sample-data preview only. Open an account or log in to recalculate using your account, then review and confirm a fresh proposal. No money has moved."
 }

@@ -310,5 +310,11 @@
   "progress_propose_plan": "Pregătesc propunerea pentru verificare…",
   "progress_request_authentication": "Pregătesc conectarea contului…",
   "progress_handoff_to_adviser": "Solicit un consultant…",
-  "elapsed": "Timp scurs: {seconds} secunde"
+  "elapsed": "Timp scurs: {seconds} secunde",
+  "connectDemo": "Conectează conturile mele (demo)",
+  "chooseSample": "Alege date de cheltuieli exemplu",
+  "samplePreview": "Previzualizare date exemplu · fără conexiune bancară",
+  "previewOnly": "Doar previzualizare. Autentifică-te pentru recalculare înainte de confirmare.",
+  "authenticatedReplan": "Recalculează planul cu contul autentificat și cheltuielile conectate",
+  "connectSample": "Conectează profilul exemplu"
 }

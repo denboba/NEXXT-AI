@@ -67,7 +67,8 @@ function simMessage(journey, lead) {
     [{ type: 'sim', sim, disclaimer: copy(journey,"legacyDisclaimer") }]);
 }
 
-function showOpen(journey) {
+function showOpen(journey, ctx = {}) {
+  if (ctx.env?.DEMO_MODE !== '0') offerContext(journey._store, journey);
   say(journey, copy(journey,"legacyAskMore"), [faqChips(journey)]);
   say(journey, copy(journey,"legacyContinue"),
     [{ type: 'cta', options: [{ id: 'new', label: copy(journey,"legacyOpen") }, { id: 'existing', label: copy(journey,"legacyExisting") }] }]);
@@ -183,9 +184,15 @@ function start(store, journey) {
 // Demo personas arrive with a customer context, so the agent greets them instead of asking scripted questions.
 function enterAgent(store, journey, user) {
   ensureCoach(store, journey);
-  journey.coach.stage = 'app';
+  journey.coach.stage = journey.userId ? 'app' : 'web';
   journey.coach.step = 'agent';
   say(journey, copy(journey, 'personaGreeting', { v0: user.firstName }));
+  store.save();
+}
+
+function offerContext(store, journey) {
+  ensureCoach(store, journey);
+  say(journey, copy(journey, 'connectQuestion'), [{ type: 'connect_context' }]);
   store.save();
 }
 
@@ -289,7 +296,7 @@ async function handle(store, journey, input, ctx = {}) {
     } else if (/^y(3|5|10)$/.test(id) && ['ask_years', 'open'].includes(c.step)) {
       p.years = Number(id.slice(1));
       if (c.stage === 'app') { c.step = 'ask_risk'; askRisk(journey); }
-      else if (c.step === 'ask_years') { c.step = 'open'; track('questions_answered'); simMessage(journey, copy(journey,"legacyPicture")); showOpen(journey); }
+      else if (c.step === 'ask_years') { c.step = 'open'; track('questions_answered'); simMessage(journey, copy(journey,"legacyPicture")); showOpen(journey, ctx); }
       else simMessage(journey, copy(journey,"legacyUpdated"));
     } else if (c.step === 'ask_risk' && RISK_OF[id]) {
       p.risk = RISK_OF[id];
@@ -317,4 +324,4 @@ function amountStep(store, journey, v, before) {
   return { messages: journey.messages.slice(before) };
 }
 
-module.exports = { start, handle, enterApp, enterAgent, onActivated, onDebit, DISCLAIMER };
+module.exports = { start, handle, enterApp, enterAgent, offerContext, onActivated, onDebit, DISCLAIMER };

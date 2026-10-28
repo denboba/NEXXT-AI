@@ -33,12 +33,12 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     try { onProgress?.({ ...event, elapsedMs: Math.round(performance.now() - began) }); }
     catch { /* A progress observer must not change the planning outcome. */ }
   };
-  const input=safety.intent(text),customer=store.db.customers[journey.userId];
+  const input=safety.intent(text),customer=store.db.customers[journey.userId || journey.sampleCustomerId];
   if(input.monthly!==null && input.monthly !== journey.memory?.chosenAmount) {
     journey.proposalVersion=(journey.proposalVersion || 0)+1;
   }
   const pending = Object.values(store.db.proposals).some(proposal => proposal.journeyId === journey.id
-    && proposal.userId === journey.userId && proposal.version === journey.proposalVersion
+    && proposal.userId === (journey.userId || null) && proposal.version === journey.proposalVersion
     && proposal.expires > Date.now());
   const changed = input.change || input.monthly !== null && input.monthly !== journey.memory?.chosenAmount
     || input.riskAnswer && input.riskAnswer !== journey.coach?.profile.risk;

@@ -64,10 +64,15 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   const clean = (s) => String(s || '').replace(/[^\w.\- ]/g, '').slice(0, 40) || null;
 
   const publicUser = (u) => u && { id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, kind: u.kind, personaId: u.personaId || null, synthetic: Boolean(u.synthetic) };
+  const hasContext = journey => Boolean(store.db.customers[journey.userId || journey.sampleCustomerId]);
   const snapshot = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
     return { journeyId: j.id, source: j.source, stage: j.coach ? j.coach.stage : 'web', step: j.coach ? j.coach.step : 'ask_amount',
-      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user), language: j.language || 'en', proposalVersion:j.proposalVersion || 0, ...(j.lastAgent || {}) };
+      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user), language: j.language || 'en',
+      sampleProfile: j.sampleCustomerId || j.linkedSampleId ? {
+        id: (j.sampleCustomerId || j.linkedSampleId).replace('persona-', ''), preview: !j.userId,
+      } : null, requiresReplan: Boolean(j.requiresReplan),
+      proposalVersion:j.proposalVersion || 0, ...(j.lastAgent || {}) };
   };
   const ctxFor = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
@@ -80,6 +85,22 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     return h;
   };
   const completeAuth = (j, user, kind) => {
+    const sampleId = j.sampleCustomerId;
+    if (sampleId) {
+      const sample = store.db.customers[sampleId];
+      if (!store.db.customers[user.id] && sample) {
+        store.db.customers[user.id] = { ...structuredClone(sample), firstName: user.firstName, linkedSample: true };
+        user.synthetic = true;
+      }
+      if (sampleId !== user.id && user.kind !== 'new') {
+        j.memory = {}; j.coach.profile = {};
+      }
+      j.linkedSampleId = sampleId;
+      delete j.sampleCustomerId;
+      j.proposalVersion = (j.proposalVersion || 0) + 1;
+      j.requiresReplan = true; j.lastAgent = null;
+    }
+    if (store.db.customers[user.id]) analytics.track(store, j, 'context_connected');
     analytics.track(store, j, 'account_ready', { kind });
     if (store.db.customers[user.id]) {
       j.memory ||= {};
@@ -90,6 +111,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     else {
       coach.start(store, j);
       coach.enterApp(store, j, user);
+      if (demo) coach.offerContext(store, j);
     }
   };
   const requireUser = (j) => {
@@ -146,6 +168,27 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     res.setHeader('set-cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
     return { reset: true };
   });
+  route('POST', '/api/context/connect', { journey: true, rate: ['context-connect', 20] }, async ({ j, body }) => {
+    if (!demo) throw new bank.BankError('Sample connection is available only in demo mode.', 403);
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    const sampleId = 'persona-' + body.persona;
+    const sample = store.db.customers[sampleId];
+    if (!sample?.synthetic || !store.db.users[sampleId]?.personaId) throw new bank.BankError('Unknown sample profile.', 404);
+    if (j.userId && store.db.customers[j.userId]) throw new bank.BankError('This account already has spending context.', 409);
+    j.memory ||= {};
+    if (j.coach.profile.monthly) j.memory.chosenAmount = j.coach.profile.monthly;
+    if (j.coach.profile.years) j.memory.horizonYears = j.coach.profile.years;
+    if (j.userId) {
+      store.db.customers[j.userId] = { ...structuredClone(sample), firstName: store.db.users[j.userId].firstName,
+        linkedSample: true };
+      j.linkedSampleId = sampleId;
+    } else j.sampleCustomerId = sampleId;
+    j.proposalVersion = (j.proposalVersion || 0) + 1;
+    j.lastAgent = null;
+    coach.enterAgent(store, j, j.userId ? store.db.users[j.userId] : sample);
+    analytics.track(store, j, 'context_connected');
+    return agentTurn(j, { text: 'Help me plan my savings using the connected sample data', turnId: body.turnId });
+  });
 
   route('GET', '/api/personas', {}, () => {
     if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
@@ -158,13 +201,18 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     progress.delete(j.id);
     j.userId = user.id; j.coach = null; j.messages = []; j.msgSeq = 0; j.memory = {}; j.lastAgent = null;
+    delete j.sampleCustomerId; delete j.linkedSampleId; delete j.requiresReplan;
+    analytics.track(store, j, 'context_connected');
     analytics.track(store, j, 'account_ready', { kind: 'existing' });
     coach.enterAgent(store, j, user);
     return { ...me(user), ...snapshot(j) };
   });
 
   route('POST', '/api/chat', { journey: true, rate: ['chat', 60] }, async ({ body, j }) => {
-    if ((body.type === 'text' && (store.db.customers[j.userId] || select({env,fetchImpl}))) || (store.db.customers[j.userId] && ['r_low','r_medium','r_high'].includes(body.id))) return agentTurn(j, body.type === 'choice' ? {text:body.id.slice(2)} : body);
+    if ((body.type === 'text' && (hasContext(j) || select({env,fetchImpl})))
+      || (hasContext(j) && ['r_low','r_medium','r_high'].includes(body.id))) {
+      return agentTurn(j, body.type === 'choice' ? {text:body.id.slice(2)} : body);
+    }
     const input = ['choice', 'amount', 'text'].includes(body.type) ? body : { type: 'state' };
     const r = await coach.handle(store, j, input, ctxFor(j));
     return { ...snapshot(j), messages: r.messages, history: j.messages };
@@ -190,6 +238,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
       j.messages.push(message);
       const {text,...meta} = result;
       j.lastAgent = meta;
+      j.requiresReplan = false;
       analytics.track(store,j,'chat_started');
       if (result.cards.some(card=>card.type==='compare')) analytics.track(store,j,'questions_answered');
       store.save();
