@@ -296,5 +296,19 @@
   "resetDemo": "Resetează demo",
   "resetWarning": "Resetezi toate cele patru profiluri fictive, planurile și conversațiile lor? Acțiunea afectează toți vizitatorii demo.",
   "previousMonthly": "Suma lunară existentă",
-  "replacementOnly": "Această propunere modifică suma planului existent doar după confirmare. Confirmarea nu mută bani."
+  "replacementOnly": "Această propunere modifică suma planului existent doar după confirmare. Confirmarea nu mută bani.",
+  "progress_provider": "Aleg următorul pas…",
+  "progress_retry": "Reîncerc după o problemă temporară a furnizorului…",
+  "progress_fallback": "Continui cu planificatorul offline…",
+  "progress_get_customer_profile": "Citesc profilul tău…",
+  "progress_get_spending_summary": "Citesc tranzacțiile tale…",
+  "progress_find_savings_capacity": "Calculez suma lunară prudentă…",
+  "progress_compare_products": "Compar produsele…",
+  "progress_simulate": "Calculez simularea și scenariul de stres…",
+  "progress_what_if": "Recalculez schimbarea…",
+  "progress_set_risk_profile": "Înregistrez răspunsul despre risc…",
+  "progress_propose_plan": "Pregătesc propunerea pentru verificare…",
+  "progress_request_authentication": "Pregătesc conectarea contului…",
+  "progress_handoff_to_adviser": "Solicit un consultant…",
+  "elapsed": "Timp scurs: {seconds} secunde"
 }

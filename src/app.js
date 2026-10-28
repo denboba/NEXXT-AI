@@ -24,6 +24,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   bank.seedClients(store);
   const hits = new Map();
   const busy = new Set();
+  const progress = new Map();
 
   const limited = (ip, group, max) => {
     const now = Date.now(), key = ip + group;
@@ -141,6 +142,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     if (!demo) throw new bank.BankError('Reset is available only in demo mode.', 403);
     if (busy.size) throw new bank.BankError('Wait for active conversations to finish before resetting.', 409);
     require('./data/reset').reset(store, j.id);
+    progress.clear();
     res.setHeader('set-cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
     return { reset: true };
   });
@@ -154,6 +156,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     const user = store.db.users['persona-' + body.persona];
     if (!user?.personaId) throw new bank.BankError('Unknown demo persona.', 404);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    progress.delete(j.id);
     j.userId = user.id; j.coach = null; j.messages = []; j.msgSeq = 0; j.memory = {}; j.lastAgent = null;
     analytics.track(store, j, 'account_ready', { kind: 'existing' });
     coach.enterAgent(store, j, user);
@@ -170,9 +173,17 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     if (typeof body.text !== 'string' || !require('./agent/safety').clean(body.text) || body.text.length > 500) throw new bank.BankError('Enter a message of up to 500 characters.');
     if (limited(j.id, 'agent', 20)) throw new bank.BankError('Too many agent requests. Please wait a minute.', 429);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    if (body.turnId && !/^[a-f0-9-]{36}$/i.test(body.turnId)) throw new bank.BankError('Invalid turn identifier.');
+    const status = { turnId: body.turnId || crypto.randomUUID(), state: 'running', events: [], started: Date.now() };
+    progress.set(j.id, status);
     busy.add(j.id);
     try {
-      const result = await agent.run({store,journey:j,text:body.text,env,fetchImpl,provider});
+      const result = await agent.run({store,journey:j,text:body.text,env,fetchImpl,provider,
+        onProgress: event => { status.events.push(event); if (status.events.length > 100) status.events.shift(); },
+      });
+      status.state = 'complete';
+      status.finished = Date.now();
+      status.mode = result.mode;
       const at = new Date().toISOString();
       j.messages.push({id:++j.msgSeq,role:'user',text:require('./agent/safety').clean(body.text),at});
       const message = {id:++j.msgSeq,role:'coach',text:result.text,widgets:result.cards,at};
@@ -183,9 +194,22 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
       if (result.cards.some(card=>card.type==='compare')) analytics.track(store,j,'questions_answered');
       store.save();
       return {...snapshot(j),messages:[message],history:j.messages,...meta};
-    } finally { busy.delete(j.id); }
+    } finally {
+      status.state = status.state === 'running' ? 'failed' : status.state;
+      status.finished ||= Date.now();
+      busy.delete(j.id);
+    }
   }
   route('POST', '/api/agent', { journey: true, rate: ['agent-ip', 60] }, ({body,j}) => agentTurn(j,body));
+  route('GET', '/api/agent/status', { journey: true }, ({ j, query }) => {
+    const status = progress.get(j.id);
+    if (query.get('turnId') && query.get('turnId') !== status?.turnId) {
+      throw new bank.BankError('Turn not found.', 404);
+    }
+    if (!status) return { state: 'idle', events: [], elapsedMs: 0 };
+    return { turnId: status.turnId, state: status.state, events: status.events,
+      elapsedMs: (status.finished || Date.now()) - status.started, mode: status.mode || null };
+  });
 
   route('POST', '/api/handoff', { journey: true, rate: ['handoff', 5] }, ({ body, j }) => {
     const user = j.userId && store.db.users[j.userId];
@@ -320,7 +344,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
       const sid = cookies(req)[COOKIE];
       let j = sid && store.db.journeys[sid] || null;
       if (match.opts.journey && !j) return send(res, 401, { error: 'No active conversation. Reload the page.' });
-      if (j) coach.start(store, j);
+      if (j && url.pathname !== '/api/agent/status') coach.start(store, j);
       const out = await match.handler({ req, res, body, query: url.searchParams, j, ip, params });
       send(res, 200, out);
     } catch (e) {

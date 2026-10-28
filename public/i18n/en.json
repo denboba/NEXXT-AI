@@ -296,5 +296,19 @@
   "resetDemo": "Reset demo",
   "resetWarning": "Reset all four sample profiles, their plans and conversations? This affects all demo visitors.",
   "previousMonthly": "Existing monthly amount",
-  "replacementOnly": "This updates the existing plan amount only after confirmation. No money moves on confirmation."
+  "replacementOnly": "This updates the existing plan amount only after confirmation. No money moves on confirmation.",
+  "progress_provider": "Choosing the next step…",
+  "progress_retry": "Retrying a temporary provider issue…",
+  "progress_fallback": "Continuing with the offline planner…",
+  "progress_get_customer_profile": "Reading your profile…",
+  "progress_get_spending_summary": "Reading your transactions…",
+  "progress_find_savings_capacity": "Calculating a safe monthly amount…",
+  "progress_compare_products": "Comparing products…",
+  "progress_simulate": "Calculating the scenario and stress case…",
+  "progress_what_if": "Re-planning the change…",
+  "progress_set_risk_profile": "Recording your risk answer…",
+  "progress_propose_plan": "Preparing a proposal for your review…",
+  "progress_request_authentication": "Preparing account connection…",
+  "progress_handoff_to_adviser": "Requesting an adviser…",
+  "elapsed": "Elapsed: {seconds} seconds"
 }

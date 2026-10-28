@@ -2,9 +2,10 @@
 const { Store } = require('../src/store');
 const { createApp } = require('../src/app');
 
-async function boot(env = {}) {
+async function boot(env = {}, options = {}) {
   const store = new Store(null);
-  const server = createApp({ store, env: { DEMO_MODE: '1', ADMIN_TOKEN: 'secret', ...env }, fetchImpl: env.fetchImpl });
+  const server = createApp({ store, env: { DEMO_MODE: '1', ADMIN_TOKEN: 'secret', ...env },
+    fetchImpl: env.fetchImpl, provider: options.provider });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const client = () => {

@@ -49,6 +49,8 @@ const S = {
   config: {},
   personas: [],
   agent: { mode: 'offline', trace: [], usage: {} },
+  progress: null,
+  progressTimer: null,
 };
 
 // ---------- boot ----------
@@ -89,14 +91,29 @@ async function refreshPanel() {
 async function send(input) {
   if (S.pending) return;
   S.pending = true; S.error = null; render();
+  const turnId = window.crypto?.randomUUID?.();
+  S.progress = { events: [], state: 'running', elapsedMs: 0 };
+  const poll = async () => {
+    if (!S.pending) return;
+    try {
+      S.progress = await api('GET', '/api/agent/status' + (turnId ? '?turnId=' + turnId : ''));
+      const panel = document.getElementById('activity');
+      if (panel) {
+        const open = panel.open;
+        const next = activityPanel(); next.open = open; panel.replaceWith(next);
+      }
+    } catch {}
+    if (S.pending) S.progressTimer = setTimeout(poll, 750);
+  };
+  S.progressTimer = setTimeout(poll, 200);
   try {
-    const r = await api('POST', '/api/chat', input);
-    S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason']) };
+    const r = await api('POST', '/api/chat', { ...input, turnId });
+    S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason','providerCalls']) };
     S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user','proposalVersion']), messages: r.history };
     if (S.snap.profile.years) S.years = S.snap.profile.years;
     await refreshPanel();
   } catch (e) { S.error = e.message; }
-  S.pending = false; render();
+  clearTimeout(S.progressTimer); S.pending = false; S.progress = null; render();
 }
 
 function lastCoachWithWidgetIndex() {
@@ -488,9 +505,14 @@ function render() {
 
 function activityPanel() {
   const usage=S.agent.usage || {};
-  return h('details',{class:'card activity',open:S.config.demoMode},
+  return h('details',{id:'activity',class:'card activity',open:S.config.demoMode},
     h('summary',null,t('activity'),' · ',h('span',{class:'mode'},S.agent.mode)),
     h('p',{class:'disc'},S.pending?t('working'):t('activityExplanation')),
+    S.pending ? h('p',{role:'status',class:'progress-live'},
+      t('elapsed',{seconds:Math.floor((S.progress?.elapsedMs || 0)/1000)}),
+      h('ol',null,(S.progress?.events || []).filter(event=>['tool_start','provider_start','provider_retry','fallback'].includes(event.type))
+        .map(event=>h('li',null,event.type==='tool_start'?t('progress_'+event.tool)
+          :event.type==='fallback'?t('progress_fallback'):event.type==='provider_retry'?t('progress_retry'):t('progress_provider'))))) : null,
     h('p',null,t('tokens')+': '+(usage.complete===false?t('unknownUsage'):((usage.inputTokens || 0)+(usage.outputTokens || 0))), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
     S.agent.fallbackReason ? h('p',{class:'disc'},t('safeFallback')+' · '+S.agent.fallbackReason) : null,
     h('ol',null,(S.agent.trace || []).map(item=>h('li',null,
