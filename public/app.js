@@ -314,7 +314,7 @@ function planCard(p) {
   };
   const active = p.status === 'active';
   return h('div', { class: 'plan' },
-    h('div', { class: 'row', style: 'display:flex;justify-content:space-between;gap:8px' }, h('b', null, p.product.name), h('span', { class: 'tag' }, active ? t("active") : t("stopped"))),
+    h('div', { class: 'row', style: 'display:flex;justify-content:space-between;gap:8px' }, h('b', null, t('product_'+p.productId)), h('span', { class: 'tag' }, active ? t("active") : t("stopped"))),
     h('div', { class: 'kv' }, h('span', null, t("monthly")), h('span', null, `${fmt(p.monthly)} lei`)),
     h('div', { class: 'kv' }, h('span', null, t("invested")), h('span', null, t("debitCount", {amount:fmt(p.invested),count:p.debits}))),
     active ? h('div', { class: 'kv' }, h('span', null, t("nextDebit")), h('span', null, p.nextDebit)) : null,
@@ -509,7 +509,7 @@ function agentCard(card) {
     const table=h('table',{class:'comparison'},h('thead',null,h('tr',null,[t('product'),t('fit'),t('why')].map(label=>h('th',{scope:'col'},label)))),h('tbody',null,card.products.map(product=>h('tr',null,
       h('th',{scope:'row'},t('product_'+product.id)),
       h('td',null,product.eligible?t('fits'):t('notFit')),
-      h('td',null,h('ul',null,[...product.why,...product.whyNot].map(reason=>h('li',null,t('reason_'+reason)))),h('small',null,t('liquidity')+': '+t('liquidity_'+product.liquidity)+' · '+t('minimumHorizon')+': '+product.minHorizonYears+' · '+t('annualFee')+': '+product.annualFeePct+'%'))))));
+      h('td',null,h('ul',null,[...product.why,...product.whyNot].map(reason=>h('li',null,t('reason_'+reason)))),h('small',null,t('liquidity')+': '+t('liquidity_'+product.liquidity)+' · '+t('minimumHorizon')+': '+product.minHorizonYears.toLocaleString(I18n.locale)+' · '+t('annualFee')+': '+product.annualFeePct.toLocaleString(I18n.locale)+'%'))))));
     box.append(h('div',{class:'table-wrap',tabindex:0,'aria-label':t('comparisonScroll')},table),h('p',{class:'disc'},t('illustrativeFees')));
   } else if(type==='simulation') {
     box.append(row(t('paidIn'),money(card.sim.contributed)),row(t('fund'),money(card.sim.fund)),row(t('cashReal'),money(card.sim.cashReal)),row(t('stressCase'),money(card.stressFund)),lineChart(card.sim),h('p',{class:'disc'},t('assumptions')));
