@@ -111,7 +111,7 @@ npm start
 | http://localhost:3000/admin | Funnel metrics and adviser call requests (token: `ADMIN_TOKEN`). |
 
 **Try it:** click an ad, answer the three questions, open an account (the demo SMS code is shown on screen), answer the risk question, activate the plan, add demo money and run the first debit.
-**Existing client:** log in with `+40 722 000 111` (Ioana Popescu, 2,500 lei) and approve on the demo phone.
+**Existing client:** log in with `+40 722 000 111` (Ioana Popescu, 18,400 lei; the same account and history as persona Ioana) and approve on the demo phone.
 
 Copy `.env.example` to `.env` to change the port, admin token, or enable the optional Claude answers.
 

@@ -15,12 +15,7 @@ const OTP_TTL_MS = 5 * 60 * 1000;
 const LOGIN_TTL_MS = 3 * 60 * 1000;
 
 function seedClients(store) {
-  const db = store.db;
-  if (Object.values(db.users).some((u) => u.seed)) return;
-  const id = uid();
-  db.users[id] = { id, seed: true, firstName: 'Ioana', lastName: 'Popescu', email: 'ioana.popescu@example.com',
-    phone: '+40722000111', kind: 'existing', createdAt: new Date().toISOString() };
-  openAccount(store, id, 2500);
+  require('./data/personas').seed(store);
 }
 
 function openAccount(store, userId, openingBalance = 0) {

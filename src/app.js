@@ -22,7 +22,6 @@ const MAX_BODY = 20 * 1024;
 function createApp({ store, env = process.env, fetchImpl, provider }) {
   const demo = env.DEMO_MODE !== '0';
   bank.seedClients(store);
-  require('./data/personas').seed(store);
   const hits = new Map();
   const busy = new Set();
 
@@ -81,8 +80,16 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   };
   const completeAuth = (j, user, kind) => {
     analytics.track(store, j, 'account_ready', { kind });
-    coach.start(store, j);
-    coach.enterApp(store, j, user);
+    if (store.db.customers[user.id]) {
+      j.memory ||= {};
+      if (j.coach?.profile.years) j.memory.horizonYears = j.coach.profile.years;
+      if (j.coach?.profile.monthly) j.memory.chosenAmount = j.coach.profile.monthly;
+      coach.enterAgent(store, j, user);
+    }
+    else {
+      coach.start(store, j);
+      coach.enterApp(store, j, user);
+    }
   };
   const requireUser = (j) => {
     const user = j && j.userId && store.db.users[j.userId];

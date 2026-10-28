@@ -39,5 +39,11 @@ function seed(store) {
     if (!store.db.users[id]) store.db.users[id] = { id, personaId: customer.id, firstName: customer.firstName, lastName: customer.lastName, kind: 'existing', synthetic: true, email: customer.id + '@example.test', phone: '+40700000' + String(DEFINITIONS.findIndex(p => p.id === customer.id) + 1).padStart(3, '0') };
     if (!store.db.accounts['account-' + id]) store.db.accounts['account-' + id] = { id: 'account-' + id, userId: id, iban: 'RO00DEMO' + customer.id.toUpperCase().padEnd(16, '0'), balance: customer.balance, currency: 'RON', card: { type: 'Demo virtual card', last4: '0000', wallets: ['Apple Pay', 'Google Pay'] } };
   }
+  Object.assign(store.db.users['persona-ioana'], {
+    seed: true,
+    phone: '+40722000111',
+    email: 'ioana.popescu@example.com',
+  });
+  require('./migrate').migrateIoana(store);
 }
 module.exports = { AS_OF, CATEGORIES, DEFINITIONS, generate, personas, seed };

@@ -118,8 +118,11 @@ test('existing client: login needs approval, then keeps the conversation', async
   s = await c.get(`/api/login/status?requestId=${req.data.requestId}`);
   assert.equal(s.data.status, 'approved');
   assert.equal(s.data.user.firstName, 'Ioana');
-  assert.equal(s.data.account.balance, 2500);
-  assert.match(s.data.messages.map((m) => m.text).join(' '), /300 lei\/month, balanced, 10 years/);
+  assert.equal(s.data.account.balance, 18400);
+  assert.equal(s.data.user.personaId, 'ioana');
+  assert.equal(s.data.profile.monthly, 300);
+  assert.equal(s.data.profile.years, 10);
+  assert.match(s.data.messages.at(-1).text, /^Hi Ioana!/);
   assert.equal((await c.get('/api/me')).status, 200);
 });
 
@@ -138,10 +141,6 @@ test('plans: suitability gate, activation, first debit, funnel, insufficient bal
   const req = await c.post('/api/login/request', { identifier: '+40 722 000 111' });
   await c.post('/api/login/approve', { requestId: req.data.requestId });
   await c.get(`/api/login/status?requestId=${req.data.requestId}`);
-
-  const legacy = Object.values(app.store.db.users).find(user => user.seed);
-  app.store.db.customers[legacy.id] = require('../src/data/personas').personas()[0];
-  require('../src/bank').accountOf(app.store, legacy.id).balance = 18400;
 
   let r = await c.post('/api/plans', { productId: 'diversified-fund', monthly: 500 });
   assert.equal(r.status, 409, 'risk question must be answered first');
