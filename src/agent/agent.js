@@ -35,7 +35,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   const reason=safety.refusal(text,customer);
   const provider=injected===undefined?select({env,fetchImpl}):injected;
   const controller=new AbortController();
-  const timeout=number(env,'LLM_TIMEOUT_MS',12000,12000),budget=number(env,'LLM_TOKEN_BUDGET',24000,24000);
+  const timeout=number(env,'LLM_TIMEOUT_MS',30000,60000),budget=number(env,'LLM_TOKEN_BUDGET',24000,24000);
   let mode=provider?'agent':'offline',fallbackReason=null,final='';
   function tool(call) {
     const started=performance.now();

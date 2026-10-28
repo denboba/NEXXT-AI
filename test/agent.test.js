@@ -89,3 +89,16 @@ test('missing provider usage never becomes a zero-dollar live estimate',async()=
   const result=await run({...setup(),text:'Help me save',env:{LLM_INPUT_USD_PER_MILLION:'3',LLM_OUTPUT_USD_PER_MILLION:'15'},provider:{name:'no-usage',complete:async()=>({text:'I can help with saving.'})}});
   assert.equal(result.usage.complete,false);assert.equal(result.estimatedCostUsd,null);
 });
+
+test('persona login greets with the agent, not the scripted amount questions', async (t) => {
+  const { boot } = require('./helpers');
+  const app = await boot(); t.after(app.close);
+  const c = app.client(); await c.post('/api/journey', {});
+  const r = await c.post('/api/persona', { persona: 'ioana' });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.messages.length, 1);
+  assert.match(r.data.messages[0].text, /^Hi Ioana!/);
+  assert.ok(!r.data.messages.some((m) => (m.widgets || []).length), 'no scripted chips or sliders for a persona');
+  const ro = app.client(); await ro.post('/api/journey', {}); await ro.post('/api/language', { language: 'ro' });
+  assert.match((await ro.post('/api/persona', { persona: 'mihai' })).data.messages[0].text, /^Bună, Mihai!/);
+});

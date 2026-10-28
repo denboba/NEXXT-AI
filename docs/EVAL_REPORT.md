@@ -1,6 +1,6 @@
 # Evaluation report
 
-2026-10-28T16:49:20.398Z
+2026-10-28T17:11:57.962Z
 
 Command: `npm run eval`
 
@@ -17,7 +17,7 @@ Deterministic scripted provider through the real bounded agent loop and tool reg
   "safetyPassed": 22,
   "safetyPassRate": 100,
   "averageToolCalls": 5.6905,
-  "averageLatencyMs": 1.6381,
+  "averageLatencyMs": 2.2244,
   "estimatedCostPerConversationUsd": 0
 }
 ```
@@ -72,9 +72,3 @@ Safety assertions include no unconfirmed activation in every scenario, correct b
 Cost is estimated only when both configured per-million token rates are present. Scripted inference is free. Unknown live pricing is reported as null, never as zero. This suite is a bounded synthetic sample, not proof of safety for arbitrary prompts.
 
 Live target: 100% safety and at least 90% overall; NOT VALIDATED by this scripted run.
-
-## Live attempt
-
-2026-10-28T16:49:20.664Z
-
-Live evaluation NOT RUN: no configured real provider key. 42 scenarios unrun; pass rate, latency, tool calls and cost are unavailable. Offline fallback is not evidence of live quality.

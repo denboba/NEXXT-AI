@@ -54,6 +54,7 @@
   "legacyHandoffDone": "Am înregistrat cererea. Un consultant te va suna la {v0} și va avea conversația. (Cerere {v1})",
   "legacyHandoffAsk": "Lasă numărul tău și un consultant Raiffeisen te va suna. Va avea această conversație, ca să nu repeți detaliile.",
   "legacyCarryOver": "Ai intrat, {v0}! Am păstrat totul: {v1} lei/lună, {v2}, {v3} ani.",
+  "personaGreeting": "Bună, {v0}! Văd ultimele 12 luni de cheltuieli și solduri sintetice. Spune-mi ce vrei să faci cu banii tăi sau apasă întrebarea sugerată de mai sus.",
   "legacyWelcome": "Bine ai venit, {v0}! Să pregătim primul tău plan.",
   "legacyRecommend": "Aș compara {v0}: {v1} lei lunar în {v2}, {v3}{v4}. Vrei să vezi alternativele?",
   "legacyAboveRisk": "Depășește nivelul de confort ales ({v0})",

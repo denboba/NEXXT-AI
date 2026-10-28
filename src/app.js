@@ -141,8 +141,8 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     if (!user?.personaId) throw new bank.BankError('Unknown demo persona.', 404);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     j.userId = user.id; j.coach = null; j.messages = []; j.msgSeq = 0; j.memory = {}; j.lastAgent = null;
-    coach.start(store, j);
-    completeAuth(j, user, 'existing');
+    analytics.track(store, j, 'account_ready', { kind: 'existing' });
+    coach.enterAgent(store, j, user);
     return { ...me(user), ...snapshot(j) };
   });
 
