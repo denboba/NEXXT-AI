@@ -239,10 +239,11 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   route('POST', '/api/proposals/:id/confirm', { journey: true, rate: ['confirm', 20] }, ({ body, j, params }) => {
     const user = requireUser(j);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    const alreadyConfirmed=Object.values(store.db.plans).some(plan=>plan.proposalId===params.id);
     const plan = bank.confirmProposal(store, j, params.id, body.confirmed);
     analytics.track(store, j, 'plan_activated', { productId: plan.productId });
     const before = j.messages.length;
-    coach.onActivated(store, j, plan);
+    if(!alreadyConfirmed) coach.onActivated(store, j, plan);
     return { plan, ...me(user), messages: j.messages.slice(before) };
   });
   route('POST', '/api/plans/:id/run-debit', { journey: true, rate: ['debit', 20] }, ({ params, j }) => {
@@ -266,6 +267,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   // admin
   route('GET', '/api/admin/metrics', { admin: true }, ({ query }) => analytics.funnel(store, { source: query.get('source') || undefined }));
   route('GET', '/api/admin/handoffs', { admin: true }, () => ({ handoffs: store.db.handoffs.slice(-50).reverse() }));
+  route('GET', '/api/admin/agent-metrics', { admin: true }, ({ query }) => analytics.agentMetrics(store, { source: query.get('source') || undefined }));
 
   // ---------- server ----------
   const SECURITY = {

@@ -21,8 +21,8 @@ async function get(path) {
 
 async function load() {
   try {
-    const [m, hd] = await Promise.all([get('/api/admin/metrics' + (source ? `?source=${encodeURIComponent(source)}` : '')), get('/api/admin/handoffs')]);
-    draw(m, hd.handoffs);
+    const [m, hd, agent] = await Promise.all([get('/api/admin/metrics' + (source ? `?source=${encodeURIComponent(source)}` : '')), get('/api/admin/handoffs'),get('/api/admin/agent-metrics'+(source?`?source=${encodeURIComponent(source)}`:''))]);
+    draw(m, hd.handoffs, agent);
   } catch (e) {
     if (e.status === 401) return askToken(e.message);
     root.replaceChildren(h('p', { class: 'err' }, e.message));
@@ -36,7 +36,7 @@ function askToken(msg) {
       h('div', { class: 'field' }, input), h('button', { class: 'btn', type: 'submit' }, t("open")))));
 }
 
-function draw(m, handoffs) {
+function draw(m, handoffs, agent) {
   const top = m.steps[0].count, last = m.steps[m.steps.length - 1].count;
   const select = h('select', { 'aria-label': t("filterSource"), onchange: (e) => { source = e.target.value; load(); } },
     h('option', { value: '' }, t("allSources")), m.sources.map((s) => h('option', { value: s, selected: s === source ? 'selected' : null }, s)));
@@ -53,9 +53,27 @@ function draw(m, handoffs) {
         h('b', null, `${i + 1} · ${s.label}`),
         h('div', { class: 'bar' }, h('i', { style: `width:${top ? Math.max(0, s.ofTop * 100) : 0}%` })),
         h('div', null, h('div', { class: 'n' }, fmt(s.count)), h('small', null, i ? t("previousShare", {previous:pct(s.ofPrevious),top:pct(s.ofTop)}) : t("start")))))),
+    agentSection(agent),
     h('section', { class: 'card', style: 'margin-top:20px' }, h('p', { class: 'eyebrow' }, t("handoffs")),
       handoffs.length ? handoffs.map((x) => h('details', { class: 'ho' }, h('summary', null, `${x.name || t("visitor")} · ${x.phone} · ${new Date(x.at).toLocaleString()}`),
         h('pre', null, x.transcript.map((t) => `${t.role === 'user' ? t("customer") : t("coachLabel")}: ${t.text}`).join('\n')))) : h('p', { style: 'color:var(--mute)' }, t("noneYet"))));
+}
+
+function agentSection(data) {
+ const cost=value=>value==null?t('unpriced'):'$'+value.toFixed(6);
+ const statistic=(label,value)=>h('div',{class:'kv'},h('span',null,label),h('b',null,value));
+ return h('section',{class:'card',style:'margin-top:20px'},h('h2',null,t('agentMetrics')),
+  statistic(t('conversations'),fmt(data.conversations)),
+  statistic(t('modeSplit'),`agent ${data.modeSplit.agent} / offline ${data.modeSplit.offline}`),
+  h('p',{class:'disc'},t('modeSplitDefinition')),
+  statistic(t('avgTools'),data.averageToolCallsPerConversation.toFixed(2)),
+  statistic(t('costConversation'),cost(data.estimatedModelCostPerConversationUsd)),
+  statistic(t('costPlan'),cost(data.estimatedModelCostPerActivatedPlanUsd)),
+  statistic(t('conversion'),data.confirmedPlans+' / '+data.proposals+' · '+(data.proposalToConfirmationRate==null?'—':pct(data.proposalToConfirmationRate))),
+  h('h3',null,t('dailyConversations')),h('ul',null,Object.entries(data.conversationsPerDay).map(([day,count])=>h('li',null,day+' · '+count))),
+  h('h3',null,t('topTools')),h('ol',null,data.topTools.map(item=>h('li',null,item.name+' · '+item.count))),
+  h('h3',null,t('topRefusals')),h('ul',null,data.topRefusalReasons.map(item=>h('li',null,item.name+' · '+item.count))),
+  h('details',null,h('summary',null,t('audit')),h('ul',null,data.audit.map(entry=>h('li',null,[entry.at,entry.personaId,entry.tool || '',entry.decision,entry.reason || ''].join(' · '))))));
 }
 
 I18n.init().then(() => { document.querySelector("header nav").append(I18n.selector(load)); load(); setInterval(load, 10000); });

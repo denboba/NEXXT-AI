@@ -41,7 +41,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     results[call.name]=output;
     if(output.ui) cards.push(output.ui);
     trace.push({tool:call.name,input:call.input,summary:output.error?'rejected':output.ui?.type || 'profile',ms:Number((performance.now()-started).toFixed(2)),error:Boolean(output.error)});
-    store.db.audit.push({at:new Date().toISOString(),personaId:store.db.users[journey.userId]?.personaId || 'anonymous',tool:call.name,decision:output.error?'rejected':'allowed'});
+    store.db.audit.push({at:new Date().toISOString(),personaId:store.db.users[journey.userId]?.personaId || 'anonymous',tool:specs.some(spec=>spec.name===call.name)?call.name:'unknown_tool',decision:output.error?'rejected':'allowed'});
     return output;
   }
   function context() { return {text,results,risk:journey.coach?.profile.risk,language,memory:journey.memory || {}}; }
@@ -104,7 +104,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   } finally { delete journey.pendingRiskAnswer; delete journey.pendingChange; }
   journey.memory={...(journey.memory || {}),risk:journey.coach?.profile.risk,chosenAmount:results.propose_plan?.proposal?.monthly || journey.memory?.chosenAmount,goal:customer?.goal,horizonYears:journey.memory?.horizonYears || customer?.horizonYears};
   const cost=price(usage,env,provider),ms=Number((performance.now()-began).toFixed(2));
-  const metrics={at:new Date().toISOString(),journeyId:journey.id,personaId:store.db.users[journey.userId]?.personaId || 'anonymous',source:journey.source,mode,toolCalls:trace.length,usage,costUsd:cost,latencyMs:ms,refusalReason:reason || null,fallbackReason,provider:provider?.name || 'offline'};
+  const metrics={at:new Date().toISOString(),journeyId:journey.id,personaId:store.db.users[journey.userId]?.personaId || 'anonymous',source:journey.source,mode,toolCalls:trace.length,tools:trace.map(item=>specs.some(spec=>spec.name===item.tool)?item.tool:'unknown_tool'),usage,costUsd:cost,latencyMs:ms,refusalReason:reason || null,fallbackReason,provider:provider?.name || 'offline'};
   store.db.turns.push(metrics);
   store.db.audit.push({at:metrics.at,personaId:metrics.personaId,decision:reason?'refusal':mode,reason:reason || fallbackReason});
   store.save();
