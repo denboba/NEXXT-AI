@@ -4,8 +4,8 @@ Measured with `npm run loadtest -- --concurrency=10 --journeys=20`.
 
 ```json
 {
-  "timestamp": "2026-10-28T15:51:54.958Z",
-  "baseCommit": "e9e173f850b7f0c120a22bb98b3d907060b39f9d",
+  "timestamp": "2026-10-28T16:27:44.030Z",
+  "baseCommit": "d2d880c1a9435dd3b28719c8d587746d011cbeda",
   "node": "v24.19.0",
   "platform": "linux/x64",
   "cpu": "AMD EPYC 9V74 80-Core Processor",
@@ -19,34 +19,34 @@ Measured with `npm run loadtest -- --concurrency=10 --journeys=20`.
   "completed": 20,
   "failed": 0,
   "requests": 80,
-  "elapsedMs": 159.34,
-  "requestsPerSecond": 502.07,
+  "elapsedMs": 212.69,
+  "requestsPerSecond": 376.14,
   "requestLatencyMs": {
-    "p50": 8.68,
-    "p95": 70.29,
-    "p99": 81.65
+    "p50": 14.96,
+    "p95": 56.41,
+    "p99": 76.09
   },
   "statuses": {
     "200": 80
   },
   "failures": {},
   "rateLimitsEnabled": true,
-  "scope": "Loopback HTTP; load generator and app share one Node process. Temporary JSON-file store; no provider, TLS, browser, real bank, or activation load."
+  "scope": "Four synthetic personas; profile/spending/capacity/comparison/proposal through the offline agent endpoint. Loopback HTTP; generator and app share one Node process. Temporary JSON-file store. No provider, TLS, browser, real bank, confirmation or debit load."
 }
 ```
 
-These are local measurements, not a production capacity claim. Twenty journeys exercise eighty real HTTP requests through the offline three-question path. The latency percentiles include errors when present. An incomplete journey makes the runner exit nonzero. The current shared-IP chat limiter allows 60 chat requests per minute; larger bursts from this single loopback IP hit HTTP 429. Do not bypass it to advertise higher throughput. This short run does not establish steady-state throughput or concurrent-customer capacity.
+These are local measurements of the loadtest working tree based on the recorded base commit, not a production capacity claim. Each journey uses four real HTTP requests, visits one of the four personas, analyzes context and reaches a validated proposal through the offline planner. It does not confirm a plan or execute a debit. The latency percentiles include errors when present. An incomplete journey makes the runner exit nonzero. Current shared-IP limits allow 20 persona switches and 60 agent requests per minute; larger bursts from this single loopback IP hit HTTP 429. Do not bypass these limits to advertise higher throughput. This short run does not establish steady-state throughput or concurrent-customer capacity.
 
 ## Scaling path and current limits
 
 - `Store` exposes `db`, `save()` and `flush()`, but application code still mutates the in-process object directly. A database migration needs scoped repository methods, transactions, uniqueness constraints and idempotency before horizontal scaling. JSON flush rewrites the complete dataset; concurrent writers are unsupported.
 - HTTP handlers can move behind a load balancer after session, onboarding and rate-limit state moves to shared storage. Currently the limiter is process-local and trusts the socket IP; do not trust arbitrary forwarded IP headers.
-- Provider deployments need bounded tool loops, per-user and global budgets, timeouts and retry/backoff for rate limits. Those agent features are not implemented in this baseline. Scripted answers continue without a provider.
+- Provider calls have six tool iterations, a twelve-second deadline and a total-token cap per turn. Agent requests have a session rate limit. Production still needs shared global/per-user monetary budgets and provider-specific retry/backoff and circuit breakers; current errors fall back immediately. Offline tools continue without a provider.
 - Cache deterministic simulations by amount, horizon and assumptions version. Never share cached customer data across sessions. Keep authorization outside the cache and confirm every proposed plan through the server.
 
 ## Rate-limit stress check
 
-The separate run below intentionally exceeds the shared-IP chat budget. It returned exit status 1; the 12 HTTP 429 responses are failures, not successful conversations. Source at measurement: the loadtest working tree based on the commit above.
+This separate run deliberately exceeded the shared-IP persona budget. It exited 1; HTTP 429 responses and incomplete journeys are failures, not throughput successes. The default measurement above is not a higher-concurrency claim.
 
 ```text
 
@@ -54,8 +54,8 @@ The separate run below intentionally exceeds the shared-IP chat budget. It retur
 > node scripts/loadtest.js --concurrency=30 --journeys=30
 
 {
-  "timestamp": "2026-10-28T15:52:14.942Z",
-  "commit": "not supplied",
+  "timestamp": "2026-10-28T16:27:54.387Z",
+  "baseCommit": "not supplied",
   "node": "v24.19.0",
   "platform": "linux/x64",
   "cpu": "AMD EPYC 9V74 80-Core Processor",
@@ -66,24 +66,29 @@ The separate run below intentionally exceeds the shared-IP chat budget. It retur
   "cgroupMemoryMax": "34359738368",
   "concurrency": 30,
   "journeys": 30,
-  "completed": 18,
-  "failed": 12,
-  "requests": 102,
-  "elapsedMs": 237.64,
-  "requestsPerSecond": 429.22,
+  "completed": 20,
+  "failed": 10,
+  "requests": 100,
+  "elapsedMs": 251.71,
+  "requestsPerSecond": 397.28,
   "requestLatencyMs": {
-    "p50": 8.25,
-    "p95": 183.64,
-    "p99": 193.73
+    "p50": 12.43,
+    "p95": 183.19,
+    "p99": 200.65
   },
   "statuses": {
     "200": 90,
-    "429": 12
+    "429": 10
   },
   "failures": {
-    "HTTP 429": 12
+    "HTTP 429": 10
   },
   "rateLimitsEnabled": true,
-  "scope": "Loopback HTTP; load generator and app share one Node process. Temporary JSON-file store; no provider, TLS, browser, real bank, or activation load."
+  "scope": "Four synthetic personas; profile/spending/capacity/comparison/proposal through the offline agent endpoint. Loopback HTTP; generator and app share one Node process. Temporary JSON-file store. No provider, TLS, browser, real bank, confirmation or debit load."
 }
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
 ```
