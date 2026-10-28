@@ -10,7 +10,7 @@ The app is a dependency-free CommonJS Node HTTP service. There is no build step.
 | `src/tools/finance.js` | Spending summaries and deterministic buffer, obligation, surplus, micro-saving and ladder calculations. Negative surplus stays negative. |
 | `src/tools/index.js` | Validated JSON-schema-style tool definitions, session-only context, data cards and controlled proposal/risk/handoff operations. No tool activates plans or accepts another customer ID. |
 | `src/agent/provider.js` and adapters | Anthropic Messages, compatible Chat Completions and Bedrock Converse normalized to text/tool calls/usage. Tests use a replayable scripted provider. |
-| `src/agent/agent.js` | Six tool-iteration ceiling, twelve-second deadline, token budget, tool execution, trace, guard retry, bounded memory, pricing and deterministic fallback. |
+| `src/agent/agent.js` | Six tool-iteration ceiling, 30-second default deadline (`LLM_TIMEOUT_MS`, max 60 s), token budget, tool execution, trace, guard retry, bounded memory, pricing and deterministic fallback. |
 | `src/agent/prompt.js` | Versioned policy separating system instructions from untrusted customer/tool/profile/merchant data. |
 | `src/agent/offline.js` | Explicit deterministic planner calling the same registry. It is a rule-based fallback, not an LLM. |
 | `src/coach.js` | Original anonymous ad-to-sign-up/login conversation and FAQ. Existing chip and onboarding flows remain. |

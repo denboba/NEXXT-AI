@@ -54,6 +54,7 @@
   "legacyHandoffDone": "Done. An adviser will call you on {v0}. They’ll see this whole conversation, so you won’t need to repeat anything. (Request {v1})",
   "legacyHandoffAsk": "Of course. Leave your phone number and a Raiffeisen adviser will call you. They’ll see this conversation, so you won’t need to repeat anything.",
   "legacyCarryOver": "You’re in, {v0}! I kept everything: {v1} lei/month, {v2}, {v3} years.",
+  "personaGreeting": "Hi {v0}! I can see your last 12 months of synthetic spending and balances. Tell me what you want to do with your money, or tap the suggested question above.",
   "legacyWelcome": "Welcome, {v0}! Let’s set up your first investment.",
   "legacyRecommend": "I’d start with {v0}: {v1} lei a month into the {v2}, {v3}{v4}. Want to hear about the other options?",
   "legacyAboveRisk": "Above the comfort level you chose ({v0})",

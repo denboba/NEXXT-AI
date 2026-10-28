@@ -180,6 +180,15 @@ function start(store, journey) {
   store.save();
 }
 
+// Demo personas arrive with a customer context, so the agent greets them instead of asking scripted questions.
+function enterAgent(store, journey, user) {
+  ensureCoach(store, journey);
+  journey.coach.stage = 'app';
+  journey.coach.step = 'agent';
+  say(journey, copy(journey, 'personaGreeting', { v0: user.firstName }));
+  store.save();
+}
+
 function enterApp(store, journey, user) {
   ensureCoach(store, journey);
   const c = journey.coach;
@@ -308,4 +317,4 @@ function amountStep(store, journey, v, before) {
   return { messages: journey.messages.slice(before) };
 }
 
-module.exports = { start, handle, enterApp, onActivated, onDebit, DISCLAIMER };
+module.exports = { start, handle, enterApp, enterAgent, onActivated, onDebit, DISCLAIMER };
