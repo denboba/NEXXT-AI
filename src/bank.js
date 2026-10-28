@@ -162,7 +162,7 @@ function nextFifth(from = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 
-function activatePlan(store, user, { productId, monthly, risk }) {
+function validatePlan(store, user, { productId, monthly, risk }) {
   const product = products.byId(productId);
   if (!product) throw new BankError('Unknown product.', 404);
   const amount = Number(monthly);
@@ -176,6 +176,31 @@ function activatePlan(store, user, { productId, monthly, risk }) {
   const existing = Object.values(store.db.plans).find((p) => p.userId === user.id && p.productId === productId && p.status === 'active');
   if (existing) throw new BankError('You already have an active plan in this product.', 409);
   const acct = accountOf(store, user.id);
+  if (!acct) throw new BankError('No account found.', 404);
+  return { product, amount, acct };
+}
+
+function proposePlan(store, journey, { productId, monthly }) {
+  const user = store.db.users[journey.userId];
+  if (!user) throw new BankError('Please log in or open an account first.', 401);
+  const risk = journey.coach?.profile.risk;
+  const { product, amount, acct } = validatePlan(store, user, { productId, monthly, risk });
+  const customer = store.db.customers[user.id];
+  if (!customer) throw new BankError('Spending history is required before proposing a plan.', 409);
+  if (product.segment !== customer.segment) throw new BankError('This product is for a different customer segment.', 403);
+  const cap = require('./tools/finance').capacity(customer, acct.balance);
+  const microSaving = product.id === 'buffer-savings' && amount === cap.microSaving;
+  if (!cap.bufferReady && !microSaving) throw new BankError('Build your emergency buffer before investing.', 409);
+  if (amount > cap.safeMonthly && !microSaving) throw new BankError('That amount exceeds the safe monthly capacity.', 409);
+  const horizon = journey.memory?.horizonYears || customer.horizonYears;
+  if (horizon < product.minHorizonYears) throw new BankError('This product does not fit your goal horizon.', 409);
+  const proposal = Object.freeze({ id: uid(), userId: user.id, journeyId: journey.id, productId, monthly: amount, risk, version: journey.proposalVersion || 0, expires: Date.now() + 10 * 60 * 1000, createdAt: new Date().toISOString() });
+  store.db.proposals[proposal.id] = proposal; store.save();
+  return proposal;
+}
+
+function activatePlan(store, user, { productId, monthly, risk }) {
+  const { amount, acct } = validatePlan(store, user, { productId, monthly, risk });
   const plan = { id: uid(), userId: user.id, accountId: acct.id, productId, monthly: amount, status: 'active',
     nextDebit: nextFifth(), invested: 0, debits: 0, createdAt: new Date().toISOString() };
   store.db.plans[plan.id] = plan;
@@ -213,5 +238,5 @@ function portfolio(store, userId) {
 
 module.exports = {
   BankError, seedClients, accountOf, startOnboarding, submitId, submitSelfie, requestOtp, verifyOtp,
-  requestLogin, approveLogin, loginStatus, topUp, activatePlan, runDebit, portfolio, nextFifth,
+  requestLogin, approveLogin, loginStatus, topUp, activatePlan, runDebit, portfolio, nextFifth, proposePlan, validatePlan,
 };
