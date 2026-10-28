@@ -107,6 +107,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     }
   } catch(error) {
     controller.abort(); fallbackReason=['timeout','token_budget','tool_limit','guard_rejection','completion_limit','invalid_tool_call'].includes(error.message)?error.message:'provider_error';
+    if(provider && ['timeout','provider_error'].includes(fallbackReason)) usage.complete=false;
     final=fallback();
   } finally { delete journey.pendingRiskAnswer; delete journey.pendingChange; }
   journey.memory={...(journey.memory || {}),risk:journey.coach?.profile.risk,chosenAmount:results.propose_plan?.proposal?.monthly || journey.memory?.chosenAmount,goal:customer?.goal,horizonYears:journey.memory?.horizonYears || customer?.horizonYears};

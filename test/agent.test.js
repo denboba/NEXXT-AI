@@ -26,8 +26,9 @@ test('tool iteration cap and token budget fall back with finite traces',async()=
   const budget=await run({...setup(),text:'Help me invest',env:{LLM_TOKEN_BUDGET:'1'},provider});assert.equal(budget.fallbackReason,'token_budget');
 });
 test('hung provider times out and offline tools still complete',async()=>{
-  const result=await run({...setup(),env:{LLM_TIMEOUT_MS:'5'},text:'Help me invest',provider:{name:'hung',complete:()=>new Promise(()=>{})}});
+  const result=await run({...setup(),env:{LLM_TIMEOUT_MS:'5',LLM_INPUT_USD_PER_MILLION:'3',LLM_OUTPUT_USD_PER_MILLION:'15'},text:'Help me invest',provider:{name:'hung',complete:()=>new Promise(()=>{})}});
   assert.equal(result.mode,'offline');assert.equal(result.fallbackReason,'timeout');assert.ok(result.cards.some(card=>card.type==='capacity'));
+  assert.equal(result.estimatedCostUsd,null);
 });
 test('numeric guard retries once then falls back instead of showing invented numbers',async()=>{
   let calls=0;

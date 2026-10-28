@@ -483,7 +483,7 @@ function activityPanel() {
   return h('details',{class:'card activity',open:S.config.demoMode},
     h('summary',null,t('activity'),' · ',h('span',{class:'mode'},S.agent.mode)),
     h('p',{class:'disc'},S.pending?t('working'):t('activityExplanation')),
-    h('p',null,t('tokens')+': '+((usage.inputTokens || 0)+(usage.outputTokens || 0)), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
+    h('p',null,t('tokens')+': '+(usage.complete===false?t('unknownUsage'):((usage.inputTokens || 0)+(usage.outputTokens || 0))), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
     S.agent.fallbackReason ? h('p',{class:'disc'},t('safeFallback')+' · '+S.agent.fallbackReason) : null,
     h('ol',null,(S.agent.trace || []).map(item=>h('li',null,
       h('b',null,item.tool),h('code',null,JSON.stringify(item.input)),

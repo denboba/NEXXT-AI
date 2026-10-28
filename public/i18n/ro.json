@@ -254,7 +254,7 @@
   "reason_Instant access.": "Acces imediat.",
   "reason_Staggered maturities protect payroll and seasonal lows.": "Scadențele eșalonate protejează salariile și lunile slabe.",
   "reason_Fits the segment, horizon and risk limits.": "Respectă segmentul, orizontul și limitele de risc.",
-  "planActiveNoDebit": "Planul demonstrativ este activ. Nu s-a executat încă nicio debitare; folosește butonul separat când ești gata.",
+  "planActiveNoDebit": "Această propunere a fost confirmată. Verifică planul de mai jos pentru starea curentă și comenzile separate de debitare.",
   "blurb_diversified-fund": "Distribuit pe mai multe piețe. Permite retrageri.",
   "tag_diversified-fund": "Plan lunar de fond",
   "blurb_bond-fund": "Fluctuații mai reduse.",
@@ -291,5 +291,6 @@
   "topRefusals": "Motive frecvente de refuz",
   "audit": "Jurnal de decizii · doar identificatori fictivi",
   "asOf": "Date sintetice valabile la",
-  "superseded": "Expirată / înlocuită"
+  "superseded": "Expirată / înlocuită",
+  "unknownUsage": "necunoscut (utilizare incompletă raportată de furnizor)"
 }

@@ -254,7 +254,7 @@
   "reason_Instant access.": "Instant access.",
   "reason_Staggered maturities protect payroll and seasonal lows.": "Staggered maturities protect payroll and seasonal lows.",
   "reason_Fits the segment, horizon and risk limits.": "Fits the segment, horizon and risk limits.",
-  "planActiveNoDebit": "The demo plan is active. No debit has run yet; use the separate debit button when ready.",
+  "planActiveNoDebit": "This proposal was confirmed. See the plan below for its current status and separate debit controls.",
   "blurb_diversified-fund": "Spread across many markets. Withdraw anytime.",
   "tag_diversified-fund": "Monthly fund plan",
   "blurb_bond-fund": "Smaller ups and downs.",
@@ -291,5 +291,6 @@
   "topRefusals": "Top refusal reasons",
   "audit": "Decision audit · synthetic persona IDs only",
   "asOf": "Synthetic data as of",
-  "superseded": "Expired / replaced"
+  "superseded": "Expired / replaced",
+  "unknownUsage": "unknown (provider usage incomplete)"
 }
