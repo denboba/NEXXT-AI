@@ -50,13 +50,13 @@ function numbersAllowed(reply, facts) {
 }
 
 async function ask({ text, facts, fetchImpl = fetch, env = process.env }) {
-  if (!env.ANTHROPIC_API_KEY) return null;
+  if (!env.ANTHROPIC_API_KEY || env.LLM_PROVIDER === 'offline') return null;
   try {
     const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: env.COACH_MODEL || 'claude-sonnet-5-5',
+        model: env.COACH_MODEL || 'claude-sonnet-4-5-20250929',
         max_tokens: 300,
         system: SYSTEM,
         messages: [{ role: 'user', content: `FACTS:\n${facts}\n\nCustomer says: ${String(text).slice(0, 500)}` }],

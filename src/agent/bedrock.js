@@ -8,7 +8,7 @@ function create({env,fetchImpl=fetch}) {
     if(!response.ok) throw new Error('Provider HTTP '+response.status);
     const data=await response.json(),content=data.output?.message?.content;
     if(!Array.isArray(content)) throw new Error('Empty Bedrock response');
-    return {text:content.filter(block=>block.text).map(block=>block.text).join(' '),toolCalls:content.filter(block=>block.toolUse).map(({toolUse})=>({id:toolUse.toolUseId,name:toolUse.name,input:toolUse.input})),usage:{inputTokens:data.usage?.inputTokens || 0,outputTokens:data.usage?.outputTokens || 0}};
+    return {text:content.filter(block=>block.text).map(block=>block.text).join(' '),toolCalls:content.filter(block=>block.toolUse).map(({toolUse})=>({id:toolUse.toolUseId,name:toolUse.name,input:toolUse.input})),usage:{inputTokens:data.usage?.inputTokens || 0,outputTokens:data.usage?.outputTokens || 0,reported:Boolean(data.usage)}};
   }};
 }
 module.exports={create};

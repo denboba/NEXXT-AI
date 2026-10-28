@@ -75,3 +75,16 @@ test('a customer-selected lower monthly amount changes the proposal and tool sim
   assert.equal(result.cards.find(card=>card.type==='plan_proposal').proposal.monthly,300);
   assert.equal(result.cards.find(card=>card.type==='simulation').sim.monthly,300);
 });
+test('an unaffordable amount request invalidates an earlier proposal, and debits protect reserves',async()=>{
+  const ctx=setup();await run({...ctx,text:'medium',provider:null});const old=Object.values(ctx.store.db.proposals)[0];
+  await run({...ctx,text:'I want to save 50 lei monthly',provider:null});
+  assert.throws(()=>bank.confirmProposal(ctx.store,ctx.journey,old.id,true),/changed/);
+  await run({...ctx,text:'I want to save 300 lei monthly',provider:null});const fresh=Object.values(ctx.store.db.proposals).at(-1);
+  const plan=bank.confirmProposal(ctx.store,ctx.journey,fresh.id,true);
+  bank.accountOf(ctx.store,ctx.journey.userId).balance=10300;
+  assert.throws(()=>bank.runDebit(ctx.store,plan.id,ctx.journey.userId),/protected/);
+});
+test('missing provider usage never becomes a zero-dollar live estimate',async()=>{
+  const result=await run({...setup(),text:'Help me save',env:{LLM_INPUT_USD_PER_MILLION:'3',LLM_OUTPUT_USD_PER_MILLION:'15'},provider:{name:'no-usage',complete:async()=>({text:'I can help with saving.'})}});
+  assert.equal(result.usage.complete,false);assert.equal(result.estimatedCostUsd,null);
+});

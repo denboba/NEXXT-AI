@@ -240,6 +240,11 @@ function runDebit(store, planId, userId) {
     addLedger(store, acct, 'failed', 0, `Plan debit skipped: balance below ${plan.monthly} lei`, { planId });
     throw new BankError(`Your balance (${acct.balance} lei) is below this month's ${plan.monthly} lei. Add money and try again.`, 402);
   }
+  const customer=store.db.customers[userId];
+  if(customer && product.id!=='buffer-savings') {
+    const cap=require('./tools/finance').capacity(customer,acct.balance);
+    if(acct.balance-plan.monthly<cap.buffer+cap.obligationTotal+cap.cashFlowLowReserve) throw new BankError('This debit would use money protected for your buffer or upcoming obligations.',409);
+  }
   acct.balance -= plan.monthly;
   plan.invested += plan.monthly;
   plan.debits += 1;

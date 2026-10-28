@@ -67,7 +67,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   const snapshot = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
     return { journeyId: j.id, source: j.source, stage: j.coach ? j.coach.stage : 'web', step: j.coach ? j.coach.step : 'ask_amount',
-      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user), language: j.language || 'en', ...(j.lastAgent || {}) };
+      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user), language: j.language || 'en', proposalVersion:j.proposalVersion || 0, ...(j.lastAgent || {}) };
   };
   const ctxFor = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
@@ -234,7 +234,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     const ui={type:'plan_proposal',proposal};
     const message={id:++j.msgSeq,role:'coach',text:require('./i18n').t(j.language,'confirmRequired'),widgets:[ui],at:new Date().toISOString()};
     j.messages.push(message);store.save();
-    return {proposal,ui,messages:[message]};
+    return {proposal,ui,messages:[message],proposalVersion:j.proposalVersion};
   });
   route('POST', '/api/proposals/:id/confirm', { journey: true, rate: ['confirm', 20] }, ({ body, j, params }) => {
     const user = requireUser(j);

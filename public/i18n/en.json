@@ -290,5 +290,6 @@
   "topTools": "Top tools",
   "topRefusals": "Top refusal reasons",
   "audit": "Decision audit · synthetic persona IDs only",
-  "asOf": "Synthetic data as of"
+  "asOf": "Synthetic data as of",
+  "superseded": "Expired / replaced"
 }

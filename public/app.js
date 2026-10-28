@@ -92,7 +92,7 @@ async function send(input) {
   try {
     const r = await api('POST', '/api/chat', input);
     S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason']) };
-    S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user']), messages: r.history };
+    S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user','proposalVersion']), messages: r.history };
     if (S.snap.profile.years) S.years = S.snap.profile.years;
     await refreshPanel();
   } catch (e) { S.error = e.message; }
@@ -169,6 +169,7 @@ function productsWidget(w, active) {
     try {
       const r = await api('POST', '/api/plans', { productId: p.id, monthly: Number(amount.value) });
       S.me = { ...S.me, ...r };
+      S.snap.proposalVersion=r.proposalVersion;
       S.snap.messages = [...S.snap.messages, ...r.messages];
       render();
     } catch (e) { note.textContent = e.message; note.style.display = 'block'; btn.disabled = false; }
@@ -516,15 +517,16 @@ function agentCard(card) {
     box.append(row(t('paidIn'),money(card.sim.contributed)),row(t('fund'),money(card.sim.fund)),row(t('cashReal'),money(card.sim.cashReal)),row(t('stressCase'),money(card.stressFund)),lineChart(card.sim),h('p',{class:'disc'},t('assumptions',{inflation:(card.sim.assumptions.inflation*100).toLocaleString(I18n.locale),rate:(card.sim.assumptions.fundReturn*100).toLocaleString(I18n.locale)})));
   } else if(type==='plan_proposal') {
     const p=card.proposal,confirmed=S.me?.portfolio?.plans?.some(plan=>plan.proposalId===p.id);
+    const stale=p.version!==S.snap.proposalVersion || Date.now()>=p.expires;
     box.append(h('p',null,t('product_'+p.productId)),row(t('monthlyAmount'),money(p.monthly)),row(t('expires'),new Date(p.expires).toLocaleTimeString(I18n.locale)),h('p',{class:'disc'},t(confirmed?'planActiveNoDebit':'proposalOnly')));
     const fail=h('p',{class:'err',role:'status'});
-    box.append(h('div',{class:'proposal-actions'},h('button',{class:'btn',disabled:confirmed || S.pending,onclick:async event=>{
+    box.append(h('div',{class:'proposal-actions'},h('button',{class:'btn',disabled:confirmed || stale || S.pending,onclick:async event=>{
       const button=event.currentTarget;button.disabled=true;
       try {
         const result=await api('POST','/api/proposals/'+encodeURIComponent(p.id)+'/confirm',{confirmed:true});
         S.me={...S.me,...result};S.snap.messages.push(...result.messages);render();
       } catch(error) {fail.textContent=error.message;button.disabled=false;}
-    }},confirmed?t('active'):t('confirm')),
+    }},confirmed?t('active'):stale?t('superseded'):t('confirm')),
     h('button',{class:'btn ghost',disabled:S.pending,onclick:()=>{const input=document.getElementById('msg-input');input.value=t('changePrompt');input.focus();}},t('change'))),fail);
   } else if(type==='what_if') {
     box.append(h('p',null,t('hypothetical')),row(t('horizonDiff'),card.previousHorizonYears+' → '+card.horizonYears),row(t('monthlyDiff'),money(card.before.safeMonthly)+' → '+money(card.after.safeMonthly)),row(t('idleDiff'),money(card.before.idleCash)+' → '+money(card.after.idleCash)),h('p',null,t('oldProposalInvalid')));

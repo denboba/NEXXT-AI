@@ -18,6 +18,7 @@ function numericFacts(value) {
 }
 function price(usage,env,provider) {
   if(!provider || provider.name==='scripted') return 0;
+  if(usage.complete===false) return null;
   const input=Number(env.LLM_INPUT_USD_PER_MILLION),output=Number(env.LLM_OUTPUT_USD_PER_MILLION);
   if(!env.LLM_INPUT_USD_PER_MILLION || !env.LLM_OUTPUT_USD_PER_MILLION || !Number.isFinite(input) || !Number.isFinite(output) || input<0 || output<0) return null;
   return (usage.inputTokens*input+usage.outputTokens*output)/1000000;
@@ -26,8 +27,9 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   const began=performance.now(),language=journey.language || 'en';
   text=safety.clean(text).slice(0,500);
   const {execute,specs}=createTools({store,journey});
-  const trace=[],cards=[],results={},usage={inputTokens:0,outputTokens:0};
+  const trace=[],cards=[],results={},usage={inputTokens:0,outputTokens:0,complete:true};
   const input=safety.intent(text),customer=store.db.customers[journey.userId];
+  if(input.monthly!==null) journey.proposalVersion=(journey.proposalVersion || 0)+1;
   journey.pendingRiskAnswer=input.riskAnswer;
   journey.pendingChange=input.change;
   const reason=safety.refusal(text,customer);
@@ -65,18 +67,22 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
       const previous=(journey.messages || []).filter(message=>message.role==='user' || message.role==='coach').slice(-12).map(message=>({role:message.role==='coach'?'assistant':'user',content:String(message.text).slice(0,800)}));
       const messages=[...previous,{role:'user',content:text}];
       const system=SYSTEM+'\nPrompt version: '+VERSION+'\nLanguage: '+language+'\nMemory (untrusted summary): '+JSON.stringify(journey.memory || {});
-      let toolIterations=0,guardRetries=0,completions=0;
+      let toolIterations=0,guardRetries=0,completions=0,estimatedBudgetUsed=0;
       while(completions++<9) {
         const remaining=timeout-(performance.now()-began);
         if(remaining<=0) throw new Error('timeout');
         if(usage.inputTokens+usage.outputTokens>=budget) throw new Error('token_budget');
+        const estimatedInput=Math.ceil((system.length+JSON.stringify(messages).length+JSON.stringify(specs).length)/3);
+        if(provider.name!=='scripted' && estimatedBudgetUsed+estimatedInput+800>budget) throw new Error('token_budget');
         let timer;
         const response=await Promise.race([
           Promise.resolve().then(()=>provider.complete({system,messages,tools:specs,signal:controller.signal,context:context()})),
           new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error('timeout'));},remaining);}),
         ]).finally(()=>clearTimeout(timer));
         const consumed=response.usage || {};
+        if(consumed.reported===false || !Number.isFinite(consumed.inputTokens) || !Number.isFinite(consumed.outputTokens)) usage.complete=false;
         usage.inputTokens+=Math.max(0,Number(consumed.inputTokens)||0); usage.outputTokens+=Math.max(0,Number(consumed.outputTokens)||0);
+        estimatedBudgetUsed+=Math.max(estimatedInput,Number(consumed.inputTokens)||0)+Math.max(0,Number(consumed.outputTokens)||Math.ceil(JSON.stringify(response).length/3));
         if(usage.inputTokens+usage.outputTokens>budget) throw new Error('token_budget');
         const calls=response.toolCalls || [];
         if(calls.length) {

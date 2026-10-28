@@ -10,7 +10,7 @@ function create({env,fetchImpl=fetch}) {
     if(!response.ok) throw new Error('Provider HTTP '+response.status);
     const data=await response.json(),message=data.choices?.[0]?.message;
     if(!message) throw new Error('Empty provider response');
-    return {text:message.content || '',toolCalls:(message.tool_calls || []).map(call=>({id:call.id,name:call.function.name,input:JSON.parse(call.function.arguments)})),usage:{inputTokens:data.usage?.prompt_tokens || 0,outputTokens:data.usage?.completion_tokens || 0}};
+    return {text:message.content || '',toolCalls:(message.tool_calls || []).map(call=>({id:call.id,name:call.function.name,input:JSON.parse(call.function.arguments)})),usage:{inputTokens:data.usage?.prompt_tokens || 0,outputTokens:data.usage?.completion_tokens || 0,reported:Boolean(data.usage)}};
   }};
 }
 module.exports={create};
