@@ -63,7 +63,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   };
   const clean = (s) => String(s || '').replace(/[^\w.\- ]/g, '').slice(0, 40) || null;
 
-  const publicUser = (u) => u && { id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, kind: u.kind };
+  const publicUser = (u) => u && { id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, kind: u.kind, personaId: u.personaId || null, synthetic: Boolean(u.synthetic) };
   const snapshot = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
     return { journeyId: j.id, source: j.source, stage: j.coach ? j.coach.stage : 'web', step: j.coach ? j.coach.step : 'ask_amount',
@@ -121,6 +121,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
       j.language = language(body.language || req.headers['accept-language']);
       res.setHeader('set-cookie', `${COOKIE}=${j.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure(req) ? '; Secure' : ''}`);
     }
+    if (['en','ro'].includes(body.language)) j.language=body.language;
     coach.start(store, j);
     return snapshot(j);
   });
@@ -227,7 +228,10 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     requireUser(j);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     const proposal = bank.proposePlan(store, j, { productId: body.productId, monthly: body.monthly });
-    return {proposal,ui:{type:'plan_proposal',proposal}};
+    const ui={type:'plan_proposal',proposal};
+    const message={id:++j.msgSeq,role:'coach',text:require('./i18n').t(j.language,'confirmRequired'),widgets:[ui],at:new Date().toISOString()};
+    j.messages.push(message);store.save();
+    return {proposal,ui,messages:[message]};
   });
   route('POST', '/api/proposals/:id/confirm', { journey: true, rate: ['confirm', 20] }, ({ body, j, params }) => {
     const user = requireUser(j);
