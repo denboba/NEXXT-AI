@@ -29,9 +29,19 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   const {execute,specs}=createTools({store,journey});
   const trace=[],cards=[],results={},usage={inputTokens:0,outputTokens:0,complete:true};
   const input=safety.intent(text),customer=store.db.customers[journey.userId];
-  if(input.monthly!==null) journey.proposalVersion=(journey.proposalVersion || 0)+1;
+  if(input.monthly!==null && input.monthly !== journey.memory?.chosenAmount) {
+    journey.proposalVersion=(journey.proposalVersion || 0)+1;
+  }
+  const pending = Object.values(store.db.proposals).some(proposal => proposal.journeyId === journey.id
+    && proposal.userId === journey.userId && proposal.version === journey.proposalVersion
+    && proposal.expires > Date.now());
+  const changed = input.change || input.monthly !== null && input.monthly !== journey.memory?.chosenAmount
+    || input.riskAnswer && input.riskAnswer !== journey.coach?.profile.risk;
+  journey.turnAllowsProposal = !input.conversation && (!pending || Boolean(changed));
   journey.pendingRiskAnswer=input.riskAnswer;
-  journey.pendingChange=input.change;
+  journey.pendingChange=input.change || (input.monthly !== null ? { monthly: input.monthly }
+    : input.riskAnswer && journey.coach?.profile.risk && input.riskAnswer !== journey.coach.profile.risk
+      ? { riskComfort: input.riskAnswer } : null);
   const reason=safety.refusal(text,customer);
   const provider=injected===undefined?select({env,fetchImpl}):injected;
   const controller=new AbortController();
@@ -41,7 +51,8 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     const started=performance.now();
     const output=execute(call.name,call.input);
     results[call.name]=output;
-    if(output.ui) cards.push(output.ui);
+    if(output.ui && (!input.conversation || ['market', 'inflation'].includes(input.conversation.topic)
+      && output.ui.type === 'simulation')) cards.push(output.ui);
     trace.push({tool:call.name,input:call.input,summary:output.error?'rejected':output.ui?.type || 'profile',ms:Number((performance.now()-started).toFixed(2)),error:Boolean(output.error)});
     store.db.audit.push({at:new Date().toISOString(),personaId:store.db.users[journey.userId]?.personaId || 'anonymous',tool:specs.some(spec=>spec.name===call.name)?call.name:'unknown_tool',decision:output.error?'rejected':'allowed'});
     return output;
@@ -96,9 +107,13 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         const reply=String(response.text || '').trim();
         const facts=JSON.stringify(numericFacts(Object.values(results)));
         // No recommendation can skip the authoritative capacity check.
-        const replyReason=safety.refusal(reply.replace(/not guaranteed|cannot guarantee|nu sunt garantate|nu pot garanta/ig,''),customer);
+        const replyReason=safety.refusal(reply.replace(/not guaranteed|cannot guarantee|nu sunt garantate|nu pot garanta/ig,'')
+          .replace(/I cannot access another customer|nu pot accesa alt client/ig, ''),customer);
         const unsafe=['injection','cross_customer','abuse','off_topic','guarantee'].includes(replyReason) || /\b(i have|i've|am) (activated|transferred|debited)|plan (is|has been) activated/i.test(reply);
-        if(reply && reply.length<=1800 && (reply.match(/[?？]/g) || []).length<=1 && results.find_savings_capacity && numbersAllowed(reply,facts) && !unsafe) { final=reply; break; }
+        const hasContext = results.find_savings_capacity
+          || input.conversation && ['greeting', 'thanks', 'confirmation'].includes(input.conversation.topic)
+          && results.get_customer_profile;
+        if(reply && reply.length<=1800 && (reply.match(/[?？]/g) || []).length<=1 && hasContext && numbersAllowed(reply,facts) && !unsafe) { final=reply; break; }
         if(guardRetries++===0) {
           messages.push({role:'assistant',content:reply.slice(0,1800)},{role:'user',content:'The answer failed validation. Use the tools before advice and ONLY numbers present in this turn’s tool outputs. Never promise returns. Give a brief safe final answer.'});
         } else throw new Error('guard_rejection');
@@ -109,7 +124,10 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     controller.abort(); fallbackReason=['timeout','token_budget','tool_limit','guard_rejection','completion_limit','invalid_tool_call'].includes(error.message)?error.message:'provider_error';
     if(provider && ['timeout','provider_error'].includes(fallbackReason)) usage.complete=false;
     final=fallback();
-  } finally { delete journey.pendingRiskAnswer; delete journey.pendingChange; }
+  } finally { delete journey.pendingRiskAnswer; delete journey.pendingChange; delete journey.turnAllowsProposal; }
+  if ((journey.messages || []).filter(message => message.role === 'coach').at(-1)?.text === final) {
+    final = t(language, 'followUpLead') + ' ' + final;
+  }
   journey.memory={...(journey.memory || {}),risk:journey.coach?.profile.risk,chosenAmount:results.propose_plan?.proposal?.monthly || journey.memory?.chosenAmount,goal:customer?.goal,horizonYears:journey.memory?.horizonYears || customer?.horizonYears};
   const cost=price(usage,env,provider),ms=Number((performance.now()-began).toFixed(2));
   const metrics={at:new Date().toISOString(),journeyId:journey.id,personaId:store.db.users[journey.userId]?.personaId || 'anonymous',source:journey.source,mode,toolCalls:trace.length,tools:trace.map(item=>specs.some(spec=>spec.name===item.tool)?item.tool:'unknown_tool'),usage,costUsd:cost,latencyMs:ms,refusalReason:reason || null,fallbackReason,provider:provider?.name || 'offline'};

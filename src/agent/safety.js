@@ -9,6 +9,7 @@ function refusal(text, customer) {
   if (/guarantee|guaranteed|garant(eaza|at|ezi)|fara risc/.test(value)) return 'guarantee';
   if (/emergency fund|emergency buffer|fondul de urgenta|banii de urgenta|everything.*(stock|invest)|tot(i|i banii|ul).*(actiuni|invest)/.test(value)) return 'protected_money';
   if (/\b(fuck|shit|idiot|stupid|prost|tampit)\b/.test(value)) return 'abuse';
+  if (require('./conversation').classify(value)) return null;
   if (/weather|football|politic|president|recipe|write.*(code|poem)|tell.*joke|vremea|fotbal|reteta|poezie|napoleon/.test(value)) return 'off_topic';
   if (!/invest|sav(e|ing)|spare|cash|money|budget|start|begin|compare|product|plan|risk|low|medium|high|bonus|rent|car|year|fee|tax|payroll|buffer|salary|income|spend|subscription|deposit|fund|pension|stock|advis|human|person|withdraw|confirm|yes|help|bani|econom|incep|risc|scazut|mediu|ridicat|chiri|masin|ani|depozit|doband|salari|fond|pens|cheltu|abonament|compar|consilier|ajutor|lichid|doi|bonjour|salut/.test(value)) return 'off_topic';
   return null;
@@ -28,6 +29,9 @@ function intent(text) {
   const clarify=/bonus/.test(value) && !bonus?'bonus':/(?:rent|chiri).*(increas|rise|creste|major)/.test(value) && !rent?'rent':null;
   const amount=/\b(\d{1,5}(?:[., ]\d{3})*)\s*(?:lei|ron)\b/.exec(value);
   const monthly=amount && /a month|monthly|lunar|pe luna|\b(save|invest)\b|economisesc|investesc/.test(value) && !Object.keys(change).length ? Number(amount[1].replace(/[., ]/g,'')) : null;
-  return { riskAnswer:risk ? map[risk[1]] : null, change:Object.keys(change).length ? change : null, monthly, clarify, handoff:/advis|human|consilier|talk to.*person/.test(value) };
+  const conversation = !risk && !Object.keys(change).length && monthly === null
+    ? require('./conversation').classify(value) : null;
+  return { riskAnswer:risk ? map[risk[1]] : null, change:Object.keys(change).length ? change : null,
+    monthly, clarify, conversation, handoff:/advis|human|consilier|talk to.*person/.test(value) };
 }
 module.exports = { clean, fold, refusal, intent };

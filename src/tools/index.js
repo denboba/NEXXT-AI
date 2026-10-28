@@ -13,7 +13,10 @@ const SPECS = [
   ['find_savings_capacity', 'Compute essential buffer, obligations, idle cash and safe monthly amount.', schema()],
   ['compare_products', 'Compare product suitability, liquidity, horizon and segment.', schema({ goal: string(), horizonYears: number(.25, 30), needsLiquidity: { type: 'boolean' }, riskComfort: enumeration(['low', 'medium', 'high']) })],
   ['simulate', 'Produce illustrative numbers and an end-of-horizon stress case.', schema({ monthly: number(100, 2000), years: { type: 'integer', minimum: 1, maximum: 30 }, productId: string(80) }, ['monthly', 'years'])],
-  ['what_if', 'Explore a hypothetical bonus, rent increase or shorter horizon without changing bank balances.', schema({ change: schema({ bonus: number(0, 100000), rentIncrease: number(0, 20000), horizonYears: number(.25, 30) }) }, ['change'])],
+  ['what_if', 'Explore a hypothetical change without moving money.', schema({ change: schema({
+    bonus: number(0, 100000), rentIncrease: number(0, 20000), horizonYears: number(.25, 30),
+    monthly: number(0, 10000), riskComfort: enumeration(['low', 'medium', 'high']),
+  }) }, ['change'])],
   ['set_risk_profile', 'Record the customer’s explicit answer to the suitability question.', schema({ answer: enumeration(['low', 'medium', 'high']) }, ['answer'])],
   ['propose_plan', 'Prepare an immutable expiring proposal. Cannot activate a plan or move money.', schema({ productId: string(80), monthly: { type: 'integer', minimum: 100, maximum: 10000 } }, ['productId', 'monthly'])],
   ['request_authentication', 'Offer the existing sign-up or login flow.', schema({ kind: enumeration(['signup', 'login']) }, ['kind'])],
@@ -53,7 +56,26 @@ function compare(customer, input, cap) {
 function createTools({ store, journey }) {
   const state = () => { const ctx = context(store, journey); return { ...ctx, cap: capacity(ctx.customer, ctx.account.balance, {rentIncrease:journey.memory?.changes?.rentIncrease || 0}) }; };
   const implementations = {
-    get_customer_profile() { const { customer } = state(); const { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf } = customer; return { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf }; },
+    get_customer_profile() {
+      const { customer, cap } = state();
+      const { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf } = customer;
+      const pending = Object.values(store.db.proposals).find(proposal => proposal.journeyId === journey.id
+        && proposal.userId === journey.userId && proposal.version === journey.proposalVersion
+        && proposal.expires > Date.now()
+        && !Object.values(store.db.plans).some(plan => plan.proposalId === proposal.id));
+      const active = Object.values(store.db.plans).find(plan => plan.userId === journey.userId && plan.status === 'active');
+      const fallbackProduct = segment === 'business' ? 'business-deposit-ladder'
+        : !cap.bufferReady ? 'buffer-savings' : 'diversified-fund';
+      const planning = {
+        monthly: pending?.monthly || active?.monthly || journey.memory?.chosenAmount || cap.safeMonthly || cap.microSaving || 100,
+        horizonYears: journey.memory?.horizonYears || horizonYears,
+        risk: journey.coach?.profile.risk || null,
+        product: products.byId(pending?.productId || active?.productId || fallbackProduct),
+        hasPending: Boolean(pending),
+        hasActive: Boolean(active),
+      };
+      return { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf, planning };
+    },
     get_spending_summary({ months = 12 }) { const data = spending(state().customer, months); return { ...data, ui: { type: 'budget', ...data } }; },
     find_savings_capacity() { const data = state().cap; return { ...data, ui: { type: 'capacity', ...data } }; },
     compare_products(input) { const { customer, cap } = state(); const actualRisk=journey.coach?.profile.risk; const risk=actualRisk || input.riskComfort || 'low'; const data = compare(customer, {...input,riskComfort:risk}, cap); return { products: data, suitabilityAnswered:Boolean(actualRisk), ui: { type: 'compare', products: data } }; },
@@ -62,27 +84,38 @@ function createTools({ store, journey }) {
       if (!product || product.expectedReturn === null) throw new bank.BankError('No illustrative return assumption for that product.');
       const sim = engine.simulate({ monthly, years, fundReturn: product.expectedReturn });
       const stress = engine.simulate({ monthly, years, fundReturn: product.expectedReturn, drop: product.risk >= 2 ? .2 : 0, dropAtMonth: years * 12 });
-      return { ...sim, annualReturnPct: Number((product.expectedReturn*100).toFixed(2)), inflationPct:Number((sim.assumptions.inflation*100).toFixed(2)), stressFund: stress.fund, illustrative: true, ui: { type: 'simulation', sim, stressFund: stress.fund, productId, illustrative: true } };
+      return { ...sim, annualReturnPct: Number((product.expectedReturn*100).toFixed(2)), inflationPct:Number((sim.assumptions.inflation*100).toFixed(2)), stressDropPct: product.risk >= 2 ? 20 : 0, stressFund: stress.fund, illustrative: true, ui: { type: 'simulation', sim, stressFund: stress.fund, productId, illustrative: true } };
     },
     what_if({ change }) {
       if (!journey.pendingChange || Object.keys(change).length!==Object.keys(journey.pendingChange).length || Object.keys(change).some(key=>change[key]!==journey.pendingChange[key])) throw new bank.BankError('A what-if change must come from the current customer message.', 409);
       const { customer, account, cap: before } = state(); const after = capacity(customer, account.balance, {...(journey.memory?.changes || {}),...change});
       journey.memory ||= {}; const previousHorizonYears=journey.memory.horizonYears || customer.horizonYears;
+      const previousMonthly = journey.memory.chosenAmount || before.safeMonthly || before.microSaving;
+      const previousRisk = journey.coach.profile.risk || null;
       journey.memory.horizonYears = change.horizonYears || previousHorizonYears;
       journey.memory.changes={...(journey.memory.changes || {}),...change};
       journey.proposalVersion = (journey.proposalVersion || 0) + 1;
-      const data = { before, after, change, previousHorizonYears, horizonYears: journey.memory.horizonYears, diff: { idleCash: after.idleCash - before.idleCash, safeMonthly: after.safeMonthly - before.safeMonthly }, hypothetical: true };
+      const data = { before, after, change, previousHorizonYears, previousMonthly, previousRisk,
+        monthly: change.monthly ?? previousMonthly, risk: change.riskComfort || previousRisk,
+        horizonYears: journey.memory.horizonYears,
+        diff: { idleCash: after.idleCash - before.idleCash, safeMonthly: after.safeMonthly - before.safeMonthly },
+        hypothetical: true };
       return { ...data, ui: { type: 'what_if', ...data } };
     },
     set_risk_profile({ answer }) {
       // A model assertion is insufficient: the server records a risk answer only
       // when it matches an explicit customer answer established for this turn.
       if (journey.pendingRiskAnswer !== answer) throw new bank.BankError('Ask the customer to answer the risk question explicitly.', 409);
+      if (journey.coach.profile.risk === answer) return { risk: answer, unchanged: true };
       journey.coach.profile.risk = answer; journey.memory ||= {}; journey.memory.risk = answer;
       journey.proposalVersion = (journey.proposalVersion || 0) + 1; store.save();
       return { risk: answer, ui: { type: 'risk_set', risk: answer } };
     },
-    propose_plan(input) { const proposal = bank.proposePlan(store, journey, input); return { proposal, ui: { type: 'plan_proposal', proposal } }; },
+    propose_plan(input) {
+      if (journey.turnAllowsProposal === false) throw new bank.BankError('A question does not request a new proposal.', 409);
+      const proposal = bank.proposePlan(store, journey, input);
+      return { proposal, ui: { type: 'plan_proposal', proposal } };
+    },
     request_authentication({ kind }) { return { required: !journey.userId, ui: { type: 'auth', kind } }; },
     handoff_to_adviser({ reason }) {
       const id = require('node:crypto').randomUUID();

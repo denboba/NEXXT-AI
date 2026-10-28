@@ -645,5 +645,493 @@
       "what_if"
     ],
     "expectsDiff": true
+  },
+  {
+    "persona": "ioana",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-ioana-en-all",
+    "turns": [
+      "medium",
+      "what if the market drops?",
+      "can I withdraw anytime?",
+      "what fees will I pay?",
+      "how does a fund work?",
+      "hello",
+      "should I buy bitcoin?",
+      "why this product?",
+      "what do you know about me?"
+    ],
+    "lastRequired": [
+      "synthetic profile"
+    ]
+  },
+  {
+    "persona": "ioana",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-ioana-en-three",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "can I withdraw anytime?",
+      "how does a fund work?"
+    ],
+    "lastRequired": [
+      "A fund pools"
+    ]
+  },
+  {
+    "persona": "ioana",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-ioana-en-confirm",
+    "turns": [
+      "medium",
+      "why this product?",
+      "what do you know about me?"
+    ]
+  },
+  {
+    "id": "convo-ioana-en-change",
+    "persona": "ioana",
+    "language": "en",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "I need money for a car in 2 years"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "term-deposit"
+  },
+  {
+    "persona": "ioana",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-ioana-ro-all",
+    "turns": [
+      "medium",
+      "ce fac dacă scade piața?",
+      "pot retrage oricând?",
+      "ce comisioane plătesc?",
+      "cum funcționează un fond?",
+      "salut",
+      "ar trebui să cumpăr bitcoin?",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ],
+    "lastRequired": [
+      "profilul tău sintetic"
+    ]
+  },
+  {
+    "persona": "ioana",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-ioana-ro-three",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "pot retrage oricând?",
+      "cum funcționează un fond?"
+    ],
+    "lastRequired": [
+      "Un fond reunește"
+    ]
+  },
+  {
+    "persona": "ioana",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-ioana-ro-confirm",
+    "turns": [
+      "medium",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ]
+  },
+  {
+    "id": "convo-ioana-ro-change",
+    "persona": "ioana",
+    "language": "ro",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "Am nevoie de bani pentru o mașină în 2 ani"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "term-deposit"
+  },
+  {
+    "persona": "andrei",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-andrei-en-all",
+    "turns": [
+      "medium",
+      "what if the market drops?",
+      "can I withdraw anytime?",
+      "what fees will I pay?",
+      "how does a fund work?",
+      "hello",
+      "should I buy bitcoin?",
+      "why this product?",
+      "what do you know about me?"
+    ],
+    "lastRequired": [
+      "synthetic profile"
+    ]
+  },
+  {
+    "persona": "andrei",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-andrei-en-three",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "can I withdraw anytime?",
+      "how does a fund work?"
+    ],
+    "lastRequired": [
+      "A fund pools"
+    ]
+  },
+  {
+    "persona": "andrei",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-andrei-en-confirm",
+    "turns": [
+      "medium",
+      "why this product?",
+      "what do you know about me?"
+    ]
+  },
+  {
+    "id": "convo-andrei-en-change",
+    "persona": "andrei",
+    "language": "en",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "I need money for a car in 2 years"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "buffer-savings"
+  },
+  {
+    "persona": "andrei",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-andrei-ro-all",
+    "turns": [
+      "medium",
+      "ce fac dacă scade piața?",
+      "pot retrage oricând?",
+      "ce comisioane plătesc?",
+      "cum funcționează un fond?",
+      "salut",
+      "ar trebui să cumpăr bitcoin?",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ],
+    "lastRequired": [
+      "profilul tău sintetic"
+    ]
+  },
+  {
+    "persona": "andrei",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-andrei-ro-three",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "pot retrage oricând?",
+      "cum funcționează un fond?"
+    ],
+    "lastRequired": [
+      "Un fond reunește"
+    ]
+  },
+  {
+    "persona": "andrei",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-andrei-ro-confirm",
+    "turns": [
+      "medium",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ]
+  },
+  {
+    "id": "convo-andrei-ro-change",
+    "persona": "andrei",
+    "language": "ro",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "Am nevoie de bani pentru o mașină în 2 ani"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "buffer-savings"
+  },
+  {
+    "persona": "mihai",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-mihai-en-all",
+    "turns": [
+      "medium",
+      "what if the market drops?",
+      "can I withdraw anytime?",
+      "what fees will I pay?",
+      "how does a fund work?",
+      "hello",
+      "should I buy bitcoin?",
+      "why this product?",
+      "what do you know about me?"
+    ],
+    "lastRequired": [
+      "synthetic profile"
+    ]
+  },
+  {
+    "persona": "mihai",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-mihai-en-three",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "can I withdraw anytime?",
+      "how does a fund work?"
+    ],
+    "lastRequired": [
+      "A fund pools"
+    ]
+  },
+  {
+    "persona": "mihai",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-mihai-en-confirm",
+    "turns": [
+      "medium",
+      "why this product?",
+      "what do you know about me?"
+    ]
+  },
+  {
+    "id": "convo-mihai-en-change",
+    "persona": "mihai",
+    "language": "en",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "I need money for a car in 2 years"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "buffer-savings"
+  },
+  {
+    "persona": "mihai",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-mihai-ro-all",
+    "turns": [
+      "medium",
+      "ce fac dacă scade piața?",
+      "pot retrage oricând?",
+      "ce comisioane plătesc?",
+      "cum funcționează un fond?",
+      "salut",
+      "ar trebui să cumpăr bitcoin?",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ],
+    "lastRequired": [
+      "profilul tău sintetic"
+    ]
+  },
+  {
+    "persona": "mihai",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-mihai-ro-three",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "pot retrage oricând?",
+      "cum funcționează un fond?"
+    ],
+    "lastRequired": [
+      "Un fond reunește"
+    ]
+  },
+  {
+    "persona": "mihai",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-mihai-ro-confirm",
+    "turns": [
+      "medium",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ]
+  },
+  {
+    "id": "convo-mihai-ro-change",
+    "persona": "mihai",
+    "language": "ro",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "Am nevoie de bani pentru o mașină în 2 ani"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "buffer-savings"
+  },
+  {
+    "persona": "elena",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-elena-en-all",
+    "turns": [
+      "medium",
+      "what if the market drops?",
+      "can I withdraw anytime?",
+      "what fees will I pay?",
+      "how does a fund work?",
+      "hello",
+      "should I buy bitcoin?",
+      "why this product?",
+      "what do you know about me?"
+    ],
+    "lastRequired": [
+      "synthetic profile"
+    ]
+  },
+  {
+    "persona": "elena",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-elena-en-three",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "can I withdraw anytime?",
+      "how does a fund work?"
+    ],
+    "lastRequired": [
+      "A fund pools"
+    ]
+  },
+  {
+    "persona": "elena",
+    "language": "en",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-elena-en-confirm",
+    "turns": [
+      "medium",
+      "why this product?",
+      "what do you know about me?"
+    ]
+  },
+  {
+    "id": "convo-elena-en-change",
+    "persona": "elena",
+    "language": "en",
+    "turns": [
+      "medium",
+      "what fees will I pay?",
+      "I need money for a car in 2 years"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "business-deposit-ladder"
+  },
+  {
+    "persona": "elena",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-elena-ro-all",
+    "turns": [
+      "medium",
+      "ce fac dacă scade piața?",
+      "pot retrage oricând?",
+      "ce comisioane plătesc?",
+      "cum funcționează un fond?",
+      "salut",
+      "ar trebui să cumpăr bitcoin?",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ],
+    "lastRequired": [
+      "profilul tău sintetic"
+    ]
+  },
+  {
+    "persona": "elena",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-elena-ro-three",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "pot retrage oricând?",
+      "cum funcționează un fond?"
+    ],
+    "lastRequired": [
+      "Un fond reunește"
+    ]
+  },
+  {
+    "persona": "elena",
+    "language": "ro",
+    "preserveProposal": true,
+    "confirmAfterQuestions": true,
+    "id": "convo-elena-ro-confirm",
+    "turns": [
+      "medium",
+      "de ce acest produs?",
+      "ce știi despre mine?"
+    ]
+  },
+  {
+    "id": "convo-elena-ro-change",
+    "persona": "elena",
+    "language": "ro",
+    "turns": [
+      "medium",
+      "ce comisioane plătesc?",
+      "Am nevoie de bani pentru o mașină în 2 ani"
+    ],
+    "expectsDiff": true,
+    "expectedProduct": "business-deposit-ladder"
   }
 ]
