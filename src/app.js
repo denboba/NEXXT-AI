@@ -153,7 +153,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     return { ...snapshot(j), messages: r.messages, history: j.messages };
   });
   async function agentTurn(j, body) {
-    if (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 500) throw new bank.BankError('Enter a message of up to 500 characters.');
+    if (typeof body.text !== 'string' || !require('./agent/safety').clean(body.text) || body.text.length > 500) throw new bank.BankError('Enter a message of up to 500 characters.');
     if (limited(j.id, 'agent', 20)) throw new bank.BankError('Too many agent requests. Please wait a minute.', 429);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     busy.add(j.id);
@@ -190,6 +190,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   route('POST', '/api/signup/selfie', { journey: true }, ({ body, j }) => ({ step: bank.submitSelfie(store, j, body).step }));
   route('POST', '/api/signup/otp/request', { journey: true, rate: ['otp', 5] }, ({ j }) => bank.requestOtp(store, j, { demo }));
   route('POST', '/api/signup/otp/verify', { journey: true, rate: ['otpv', 10] }, ({ body, j }) => {
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     const { user } = bank.verifyOtp(store, j, body.code);
     completeAuth(j, user, 'new');
     return { ...me(user), ...snapshot(j) };
@@ -198,6 +199,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   // existing clients
   route('POST', '/api/login/request', { journey: true, rate: ['login', 10] }, ({ body, j }) => bank.requestLogin(store, j, body.identifier));
   route('GET', '/api/login/status', { journey: true }, ({ query, j }) => {
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     const wasIn = j.userId;
     const s = bank.loginStatus(store, j, query.get('requestId'));
     if (s.status === 'approved' && !wasIn) completeAuth(j, store.db.users[j.userId], 'existing');
@@ -211,6 +213,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     return { status: bank.approveLogin(store, body.requestId, body.approve !== false).status };
   });
   route('POST', '/api/logout', { journey: true }, ({ j, res }) => {
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     j.userId = null; store.save();
     res.setHeader('set-cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
     return { ok: true };
@@ -286,6 +289,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
         if (req.method !== 'GET') return send(res, 405, 'Method not allowed', SECURITY);
         return serveStatic(req, res, url.pathname);
       }
+      if (req.method === 'POST' && req.headers.origin && req.headers.origin !== `${secure(req) ? 'https' : 'http'}://${req.headers.host}`) return send(res, 403, {error:'Cross-origin requests are not allowed.'});
       if (limited(ip, 'all', 300)) return send(res, 429, { error: 'Too many requests. Please slow down.' });
       let match = null, params = {};
       for (const r of routes) {

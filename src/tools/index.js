@@ -51,7 +51,7 @@ function compare(customer, input, cap) {
   }).sort((a, b) => b.score - a.score);
 }
 function createTools({ store, journey }) {
-  const state = () => { const ctx = context(store, journey); return { ...ctx, cap: capacity(ctx.customer, ctx.account.balance) }; };
+  const state = () => { const ctx = context(store, journey); return { ...ctx, cap: capacity(ctx.customer, ctx.account.balance, {rentIncrease:journey.memory?.changes?.rentIncrease || 0}) }; };
   const implementations = {
     get_customer_profile() { const { customer } = state(); const { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf } = customer; return { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf }; },
     get_spending_summary({ months = 12 }) { const data = spending(state().customer, months); return { ...data, ui: { type: 'budget', ...data } }; },
@@ -65,8 +65,8 @@ function createTools({ store, journey }) {
       return { ...sim, stressFund: stress.fund, illustrative: true, ui: { type: 'simulation', sim, stressFund: stress.fund, productId, illustrative: true } };
     },
     what_if({ change }) {
-      if (JSON.stringify(change) !== JSON.stringify(journey.pendingChange)) throw new bank.BankError('A what-if change must come from the current customer message.', 409);
-      const { customer, account, cap: before } = state(); const after = capacity(customer, account.balance, change);
+      if (!journey.pendingChange || Object.keys(change).length!==Object.keys(journey.pendingChange).length || Object.keys(change).some(key=>change[key]!==journey.pendingChange[key])) throw new bank.BankError('A what-if change must come from the current customer message.', 409);
+      const { customer, account, cap: before } = state(); const after = capacity(customer, account.balance, {...(journey.memory?.changes || {}),...change});
       journey.memory ||= {}; const previousHorizonYears=journey.memory.horizonYears || customer.horizonYears;
       journey.memory.horizonYears = change.horizonYears || previousHorizonYears;
       journey.memory.changes={...(journey.memory.changes || {}),...change};
