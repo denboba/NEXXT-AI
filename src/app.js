@@ -19,6 +19,7 @@ const MAX_BODY = 20 * 1024;
 function createApp({ store, env = process.env, fetchImpl }) {
   const demo = env.DEMO_MODE !== '0';
   bank.seedClients(store);
+  require('./data/personas').seed(store);
   const hits = new Map();
 
   const limited = (ip, group, max) => {
@@ -119,6 +120,20 @@ function createApp({ store, env = process.env, fetchImpl }) {
     return snapshot(j);
   });
   route('GET', '/api/journey', { journey: true }, ({ j }) => snapshot(j));
+
+  route('GET', '/api/personas', {}, () => {
+    if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
+    return { personas: require('./data/personas').DEFINITIONS.map(({ id, firstName, lastName, description }) => ({ id, name: firstName + ' ' + lastName, description })) };
+  });
+  route('POST', '/api/persona', { journey: true, rate: ['persona', 20] }, ({ j, body }) => {
+    if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
+    const user = store.db.users['persona-' + body.persona];
+    if (!user?.personaId) throw new bank.BankError('Unknown demo persona.', 404);
+    j.userId = user.id; j.coach = null; j.messages = []; j.msgSeq = 0; j.memory = {};
+    coach.start(store, j);
+    completeAuth(j, user, 'existing');
+    return { ...me(user), ...snapshot(j) };
+  });
 
   route('POST', '/api/chat', { journey: true, rate: ['chat', 60] }, async ({ body, j }) => {
     const input = ['choice', 'amount', 'text'].includes(body.type) ? body : { type: 'state' };

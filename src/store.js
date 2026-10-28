@@ -4,7 +4,7 @@ const path = require('path');
 
 const EMPTY = () => ({
   journeys: {}, users: {}, accounts: {}, plans: {}, ledger: [], events: [],
-  onboardings: {}, loginRequests: {}, handoffs: [],
+  onboardings: {}, loginRequests: {}, handoffs: [], customers: {}, proposals: {}, turns: [], audit: [],
 });
 
 // Small JSON-file store. Pass null for an in-memory store (tests).
