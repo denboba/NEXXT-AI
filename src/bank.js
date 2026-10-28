@@ -101,7 +101,8 @@ function verifyOtp(store, journey, code) {
   if (o.otpAttempts >= 5) throw new BankError('Too many attempts. Request a new code.', 429);
   o.otpAttempts++;
   if (String(code).trim() !== o.otp) { store.save(); throw new BankError('That code is not right.'); }
-  const user = { id: uid(), ...o.details, kind: 'new', idLast4: o.idLast4, createdAt: new Date().toISOString(), signedAt: new Date().toISOString() };
+  const user = { id: uid(), ...o.details, kind: 'new', idLast4: o.idLast4,
+    createdAt: new Date().toISOString(), signedAt: new Date().toISOString() };
   store.db.users[user.id] = user;
   const account = openAccount(store, user.id, 0);
   o.step = 'done'; o.otp = null;
@@ -225,7 +226,9 @@ function confirmProposal(store, journey, id, confirmed) {
     : Object.values(store.db.plans).find(plan => plan.proposalId === id);
   if (existing) return existing;
   if (Date.now() >= proposal.expires) throw new BankError('Proposal expired. Ask for an updated plan.', 410);
-  if (proposal.version !== (journey.proposalVersion || 0)) throw new BankError('Your goal or risk answer changed. Review a new proposal.', 409);
+  if (proposal.version !== (journey.proposalVersion || 0)) {
+    throw new BankError('Your goal or risk answer changed. Review a new proposal.', 409);
+  }
   const { user, risk, existing: replacement } = checkProposal(store, journey, proposal);
   if (risk !== proposal.risk) throw new BankError('Your risk answer changed. Review a new proposal.', 409);
   const plan = replacement || activatePlan(store, user, { ...proposal, risk });
@@ -261,7 +264,9 @@ function runDebit(store, planId, userId) {
   const customer=store.db.customers[userId];
   if(customer && product.id!=='buffer-savings') {
     const cap=require('./tools/finance').capacity(customer,acct.balance);
-    if(acct.balance-plan.monthly<cap.buffer+cap.obligationTotal+cap.cashFlowLowReserve) throw new BankError('This debit would use money protected for your buffer or upcoming obligations.',409);
+    if (acct.balance - plan.monthly < cap.buffer + cap.obligationTotal + cap.cashFlowLowReserve) {
+      throw new BankError('This debit would use money protected for your buffer or upcoming obligations.', 409);
+    }
   }
   acct.balance -= plan.monthly;
   plan.invested += plan.monthly;
