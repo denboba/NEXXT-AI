@@ -87,3 +87,16 @@ test('sample connection is demo-only, same-origin and cannot replace authenticat
   const prod = production.client(); await prod.post('/api/journey', {});
   assert.equal((await prod.post('/api/context/connect', { persona: 'ioana' })).status, 403);
 });
+
+test('connected anonymous context uses the actual agent loop and tools when a provider is configured', async t => {
+  const provider = require('../src/agent/scripted').create();
+  const app = await boot({}, { provider }); t.after(app.close);
+  const { client, preview } = await connect(app);
+  const snapshot = await client.get('/api/journey');
+  assert.equal(snapshot.data.mode, 'agent');
+  assert.ok(snapshot.data.providerCalls.length >= 3);
+  assert.ok(snapshot.data.trace.some(item => item.tool === 'propose_plan'));
+  assert.ok(snapshot.data.trace.some(item => item.tool === 'request_authentication'));
+  assert.equal(snapshot.data.guardOutcome, 'passed');
+  assert.equal((await client.post('/api/proposals/' + preview.id + '/confirm', { confirmed: true })).status, 401);
+});

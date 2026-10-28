@@ -56,7 +56,7 @@ function draw(m, handoffs, agent) {
     agentSection(agent),
     h('section', { class: 'card', style: 'margin-top:20px' }, h('p', { class: 'eyebrow' }, t("handoffs")),
       handoffs.length ? handoffs.map((x) => h('details', { class: 'ho' }, h('summary', null, `${x.name || t("visitor")} · ${x.phone} · ${new Date(x.at).toLocaleString()}`),
-        h('pre', null, x.transcript.map((t) => `${t.role === 'user' ? t("customer") : t("coachLabel")}: ${t.text}`).join('\n')))) : h('p', { style: 'color:var(--mute)' }, t("noneYet"))));
+        h('pre', null, x.transcript.map((message) => `${message.role === 'user' ? t("customer") : t("coachLabel")}: ${message.text}`).join('\n')))) : h('p', { style: 'color:var(--mute)' }, t("noneYet"))));
 }
 
 function agentSection(data) {

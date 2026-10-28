@@ -109,7 +109,7 @@ async function send(input, path = '/api/chat') {
   S.progressTimer = setTimeout(poll, 200);
   try {
     const r = await api('POST', path, { ...input, turnId });
-    S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason','providerCalls']) };
+    S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason','providerCalls','refusalReason']) };
     S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user', 'proposalVersion', 'sampleProfile', 'requiresReplan']), messages: r.history };
     if (S.snap.profile.years) S.years = S.snap.profile.years;
     await refreshPanel();
@@ -528,7 +528,9 @@ function activityPanel() {
         .map(event=>h('li',null,event.type==='tool_start'?t('progress_'+event.tool)
           :event.type==='fallback'?t('progress_fallback'):event.type==='provider_retry'?t('progress_retry'):t('progress_provider'))))) : null,
     h('p',null,t('tokens')+': '+(usage.complete===false?t('unknownUsage'):((usage.inputTokens || 0)+(usage.outputTokens || 0))), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
-    S.agent.fallbackReason ? h('p',{class:'disc',role:'status'},t('fallbackProvider')) : null,
+    S.agent.fallbackReason && !S.agent.refusalReason ? h('p', { class: 'disc', role: 'status' },
+      t(['auth', 'timeout', 'throttled', 'guard_rejection'].includes(S.agent.fallbackReason)
+        ? 'fallback_' + S.agent.fallbackReason : 'fallbackProvider')) : null,
     !S.pending && !S.agent.trace?.length ? h('p', { class: 'disc' }, t('emptyActivity')) : null,
     h('ol',null,(S.agent.trace || []).map(item=>h('li',null,
       h('b',null,item.tool),h('code',null,JSON.stringify(item.input)),

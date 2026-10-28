@@ -329,5 +329,9 @@
   "cardError": "Calculul nu a putut fi finalizat. Verifică activitatea și încearcă din nou.",
   "emptyActivity": "Apelurile instrumentelor apar aici când pui o întrebare.",
   "fallbackProvider": "Modelul nu a finalizat răspunsul. Planificatorul offline a răspuns cu aceleași instrumente.",
-  "cardDetails": "Deschide detaliile calculului"
+  "cardDetails": "Deschide detaliile calculului",
+  "fallback_auth": "Accesul la model a fost refuzat. Planificatorul offline a răspuns cu aceleași instrumente.",
+  "fallback_timeout": "Modelul a răspuns prea lent. Planificatorul offline a răspuns cu aceleași instrumente.",
+  "fallback_throttled": "Serviciul modelului este ocupat. Planificatorul offline a răspuns cu aceleași instrumente.",
+  "fallback_guard_rejection": "Răspunsul modelului nu a trecut verificările. Planificatorul offline a răspuns cu aceleași instrumente."
 }

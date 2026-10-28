@@ -329,5 +329,9 @@
   "cardError": "This calculation could not be completed. Review the activity panel and try again.",
   "emptyActivity": "Your tool calls will appear here when you ask a question.",
   "fallbackProvider": "The model could not complete this turn. The offline planner answered using the same tools.",
-  "cardDetails": "Open calculation details"
+  "cardDetails": "Open calculation details",
+  "fallback_auth": "Model access was denied. The offline planner answered using the same tools.",
+  "fallback_timeout": "The model took too long. The offline planner answered using the same tools.",
+  "fallback_throttled": "The model service is busy. The offline planner answered using the same tools.",
+  "fallback_guard_rejection": "The model answer failed validation. The offline planner answered using the same tools."
 }
