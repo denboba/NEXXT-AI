@@ -23,3 +23,11 @@ test('missing keys select offline; invalid remote compatible URL cannot receive 
   const provider=select({env:{LLM_PROVIDER:'openai',COMPAT_API_KEY:'fake',COMPAT_BASE_URL:'http://example.com'},fetchImpl:()=>{throw new Error('Must not fetch');}});
   await assert.rejects(provider.complete(request),/HTTPS/);
 });
+test('Anthropic and Bedrock combine a tool batch into one user result message',async()=>{
+  const messages=[{role:'user',content:'Help me save'},{role:'assistant',content:'',toolCalls:[{id:'a',name:tool.name,input:{}},{id:'b',name:tool.name,input:{}}]},{role:'tool',toolCallId:'a',content:'{"balance":100}'},{role:'tool',toolCallId:'b',content:'{"balance":200}'}];
+  for(const kind of ['anthropic','bedrock']) {
+    let body;
+    const provider=select({env:{LLM_PROVIDER:kind,ANTHROPIC_API_KEY:'fake',AWS_BEARER_TOKEN_BEDROCK:'fake',AWS_REGION:'eu-west-2',BEDROCK_MODEL_ID:'test'},fetchImpl:async(url,options)=>{body=JSON.parse(options.body);return {ok:true,json:async()=>kind==='anthropic'?{content:[{type:'text',text:'Safe saving.'}]}:{output:{message:{content:[{text:'Safe saving.'}]}}}};}});
+    await provider.complete({...request,messages});assert.equal(body.messages.length,3);assert.equal(body.messages[2].role,'user');assert.equal(body.messages[2].content.length,2);
+  }
+});

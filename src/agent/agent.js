@@ -65,6 +65,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     } else if(!provider) final=fallback();
     else {
       const previous=(journey.messages || []).filter(message=>message.role==='user' || message.role==='coach').slice(-12).map(message=>({role:message.role==='coach'?'assistant':'user',content:String(message.text).slice(0,800)}));
+      while(previous[0]?.role==='assistant') previous.shift();
       const messages=[...previous,{role:'user',content:text}];
       const system=SYSTEM+'\nPrompt version: '+VERSION+'\nLanguage: '+language+'\nMemory (untrusted summary): '+JSON.stringify(journey.memory || {});
       let toolIterations=0,guardRetries=0,completions=0,estimatedBudgetUsed=0;
