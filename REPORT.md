@@ -1,5 +1,7 @@
 # Implementation report
 
+The original Task 1 record below is historical. The **Task 2** section at the end records the current branch, checks and live-access limitation.
+
 Branch: `agent-upgrade`, created from `origin/main` at `ad2f8bd9ebb5abd7f989d3643f261f7088d8f9df`. No commit was made to main. Existing deck, source PDF and history were preserved.
 
 The tool-calling implementation and offline demo are complete and locally verified. Live-model quality and draft-PR creation remain externally blocked; they are not reported as passed.
@@ -184,3 +186,266 @@ The `agent-upgrade` branch was pushed to `origin`; main was not changed or merge
 A narrow `api.github.com` addition was saved in the environment configuration draft, preserving `bedrock-runtime.eu-west-2.amazonaws.com` and the package-manager presets. Runtime observations still showed no custom domains applied. Apply that saved network setting so the requested draft PR can be created against main. No PR URL is invented and no PR is claimed open or merged. A prepared PR title/body is available locally outside the checkout for the final operation once access is restored.
 
 Reusable startup instructions were updated in the environment draft to describe the implemented adapters, offline workflow, Node proxy activation, secure Bedrock requirements and real readiness checks. The draft also declares `LLM_PROVIDER=bedrock` and `NODE_USE_ENV_PROXY=1`; previous secure Bedrock requirements remain. Saving is not runtime application, publication or proof of restoration in a fresh task.
+
+
+## Task 2
+
+Branch: `agent-polish`, created from latest `origin/main` at `acb3fb0513209e489eb37c000c0f58a90fc80006`. Task 1 and reviewer fixes were preserved. No commit was made to main; no merge is authorized. The final delivery is a draft PR against main, linked in the task attachment.
+
+The model-driven agent is integrated into authenticated chat and anonymous connected-sample previews. The real provider chooses tools through the bounded loop; the deterministic planner remains an explicitly labeled fallback. **Live Bedrock readiness is not passed:** the configured service returned HTTP 403 `AccessDeniedException` for all five smoke prompts. No successful model response, live quality score or model cost is claimed.
+
+### Work packages
+
+| Package | What changed and evidence |
+|---|---|
+| T1 · One identity | Phone/email login and persona selection now use canonical Ioana, account balance 18,400 lei and the same history. Migration archives duplicate seed records, preserves net account activity and updates references; it is repeatable. Approved ordinary login enters agent chat. |
+| T2 · Conversation | Focused English/Romanian greeting, thanks, fees, liquidity, market stress, fund/minimum/inflation/tax/product/crypto/profile/why answers use scoped tools. Informational turns preserve proposals; explicit amount/horizon/risk changes return a diff and replacement. Repeated questions cannot end with identical consecutive assistant messages. Added 32 conversational evals, bringing the total from 42 to 74. |
+| T3 · Repeatability | Demo-only same-origin, rate-limited audited reset restores all four financial profiles and affected journeys. Active-plan amount changes need a new proposal and explicit confirmation. HTTP and browser tests complete two successive four-persona runs. |
+| T4 · Live path | All three adapters normalize errors, redact raw failures, retry transient 429/5xx/reset once within deadlines and accept configured model IDs. Default per-call limit 20 seconds; total 30 seconds, maximum 60. Owned polling exposes real events while the POST is pending; normal POST still returns the complete answer/cards/trace. Smoke runner and LIVE_RUNBOOK added. Real access denial and no-key exit 2 are recorded below; mock protocol/error/progress tests pass. |
+| T5 · Readability | Manually expanded source; no formatter or new dependency. Zero JavaScript lines over 140 characters in src. Before/after test and scenario outcomes/tool counts identical; prompt/data/calculation hash identical. |
+| T6 · First minute | Three suggested prompts per persona, separate risk choices, dominant proposal and collapsible supporting cards. Activity defaults open on desktop and closed on phones. Empty/error/loading/fallback states, clear provider-failure copy, 16px minimum tested text, visible focus and measured contrast. Updated screenshots and fixed adviser-transcript rendering in admin. |
+| T7 · Connected acquisition | Simulation offers explicit synthetic sample connection. Anonymous agent analysis creates an immutable preview after risk, then offers authentication. Preview has no Confirm in UI and cannot confirm through HTTP or bank layer. Login invalidates preview; a fresh proposal uses the actual authenticated balance. New accounts may link sample history explicitly but retain zero balance. Added context_connected funnel step and scoped offline/scripted-provider integration tests. |
+| T8 · Impact | Dependency-free CLI calculates explicitly hypothetical funnel, funding, monthly contributions, USD model cost per activated plan and sensitivity. IMPACT_MODEL separates assumptions from real measurements and explains bank value and production scaling work. |
+
+### Commands and results
+
+Run from the repository root with Node 20+; Node 24.19.0 was used here. No install/build is needed. `npm run setup` was run twice and preserved existing local configuration. `NODE_USE_ENV_PROXY=1 npm start` was exercised; a real local simulation request returned the expected fund 35,771 and cash-real 26,379 values for 500 lei over five years. A provider-configured flag was not treated as successful inference.
+
+`npm test` — real final output:
+
+```text
+ℹ tests 106
+ℹ suites 0
+ℹ pass 106
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2763.762145
+```
+
+All existing tests remain included, including the prior acquisition, approval, ownership and funnel assertions. The new funnel expectation includes context_connected. No test was disabled. There are no runtime or development dependency declarations and no lockfile/package addition. The branch diff was checked against configured credential values without printing them; none occurred.
+
+`npm run eval` — real final output (scripted provider, free, no external inference):
+
+```json
+{
+  "mode": "scripted",
+  "scenarios": 74,
+  "passed": 74,
+  "failed": 0,
+  "passRate": 100,
+  "safetyScenarios": 22,
+  "safetyPassed": 22,
+  "safetyPassRate": 100,
+  "averageToolCalls": 10.1892,
+  "averageLatencyMs": 2.7858,
+  "estimatedCostPerConversationUsd": 0
+}
+```
+
+The full scenario table is committed in [docs/EVAL_REPORT.md](docs/EVAL_REPORT.md). All 22 safety scenarios pass. This is not the live 90% quality target. Every scenario also checks that the agent did not activate a plan; conversational cases check proposal stability and no repeated consecutive replies.
+
+### Readability before/after evidence
+
+```text
+Before: 105 tests; 105 pass; 0 fail
+After:  105 tests; 105 pass; 0 fail
+All 74 scenario results and tool counts identical before/after formatting.
+Legacy system prompt byte-identical: true
+Source JavaScript lines over 140 characters: 0
+```
+
+The same 105-test working tree included impact tests during both format checks; the additional connected-preview provider integration test was added afterwards, yielding the final 106. Timing naturally varies. SHA-256 over the exported versioned system prompt, catalogue, all generated transactions, spending summaries and capacities was identical before/after:
+
+```text
+dda965f970ca309fde347a8825566e8c7c77d01b8579fa8b3fd6f96fb9c76f4b
+```
+
+No formatter tooling was used. Application behavior and the zero-dependency contract remain.
+
+### Live smoke — actual failed access and no-key behavior
+
+`npm run smoke:live` used the injected Bedrock binding, London Region and configured model. It exited **1**. Safe classification was `auth`; a minimal diagnostic confirmed HTTP **403 AccessDeniedException**. Raw provider errors, credentials and request headers were not logged.
+
+| Prompt/persona | Mode | Provider call ms | Total ms | Guard | Result |
+|---|---|---:|---:|---|---|
+| Ioana spare cash | offline | 794 | 809.46 | not_completed | FAIL |
+| Andrei saving | offline | 293 | 294.29 | not_completed | FAIL |
+| Mihai tax/irregular income | offline | 260 | 261.70 | not_completed | FAIL |
+| Elena payroll | offline | 274 | 275.41 | not_completed | FAIL |
+| Ioana car in two years | offline | 324 | 325.94 | not_completed | FAIL |
+
+All five executed the scoped offline tools after denial. Usage was incomplete and model cost unknown; there were zero successful live model responses. Smoke invoked no confirmation or debit. The configured model identifier did not match the requested Opus model. Secure credential/model access and the exact supported model or inference-profile identifier must be corrected in environment settings. No model was silently substituted. Full live eval was not repeatedly run against the known access denial; its quality target remains unvalidated. [LIVE_RUNBOOK](docs/LIVE_RUNBOOK.md) explains the retry procedure.
+
+The separate command below removed provider-key variables only for that child process and exited **2**:
+
+```bash
+env -u AWS_BEARER_TOKEN_BEDROCK -u ANTHROPIC_API_KEY -u COMPAT_API_KEY npm run smoke:live
+```
+
+Real output:
+
+```text
+Live smoke NOT RUN: configure a real provider key and its model first. Five prompts are unrun.
+Bedrock needs AWS_BEARER_TOKEN_BEDROCK, AWS_REGION and the exact BEDROCK_MODEL_ID in secure settings.
+With Node 24 and the managed proxy, start with NODE_USE_ENV_PROXY=1 npm run smoke:live.
+```
+
+Mocked tests cover 429, 503, 401, 404, 400, network resets and ignored-abort timeouts for Anthropic, compatible and Bedrock, plus Bedrock model/profile formats, protocol normalization, redaction and batched tool results. Browser progress uses a clearly mocked delayed scripted provider; it is not claimed as real inference.
+
+### Load — real output
+
+Command: `LOADTEST_COMMIT=$(git rev-parse HEAD) npm run loadtest` at the recorded base commit:
+
+```json
+{
+  "timestamp": "2026-10-28T18:18:56.208Z",
+  "baseCommit": "575bcc18aca640f3cba1af94fd130d67eb6d4d83",
+  "node": "v24.19.0",
+  "platform": "linux/x64",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "visibleLogicalCpus": 5,
+  "availableParallelism": 4,
+  "hostMemoryMiB": 34088,
+  "cgroupCpuMax": "400000 100000",
+  "cgroupMemoryMax": "34359738368",
+  "concurrency": 10,
+  "journeys": 20,
+  "completed": 20,
+  "failed": 0,
+  "requests": 80,
+  "elapsedMs": 195.37,
+  "requestsPerSecond": 409.49,
+  "requestLatencyMs": {
+    "p50": 13.3,
+    "p95": 65.78,
+    "p99": 92.04
+  },
+  "statuses": {
+    "200": 80
+  },
+  "failures": {},
+  "rateLimitsEnabled": true,
+  "scope": "Four synthetic personas; profile/spending/capacity/comparison/proposal through the offline agent endpoint. Loopback HTTP; generator and app share one Node process. Temporary JSON-file store. No provider, TLS, browser, real bank, confirmation or debit load."
+}
+```
+
+[docs/SCALE.md](docs/SCALE.md) discloses hardware and limits. This short same-process loopback run exercises offline analysis to proposals, with real rate limits and temporary JSON persistence. It excludes provider/TLS/browser/confirmation/debit throughput and is not a claim of sustained production scale. The prior failed rate-limit stress evidence is retained separately.
+
+### Browser evidence — real output
+
+Throwaway Playwright was installed only under /tmp with npm's cache also under /tmp, using preinstalled Chromium. No browser dependency was added to the project. Real local app checks:
+
+```json
+[
+  {
+    "width": 1360,
+    "height": 900,
+    "overflow": false,
+    "minFontPx": 16,
+    "activityDefault": "open",
+    "flow": "proposal → fees → confirm → Romanian profile",
+    "errors": []
+  },
+  {
+    "width": 1920,
+    "height": 1080,
+    "overflow": false,
+    "minFontPx": 16,
+    "activityDefault": "open",
+    "flow": "proposal → fees → confirm → Romanian profile",
+    "errors": []
+  },
+  {
+    "width": 390,
+    "height": 800,
+    "overflow": false,
+    "minFontPx": 16,
+    "activityDefault": "closed",
+    "flow": "proposal → fees → confirm → Romanian profile",
+    "errors": []
+  },
+  {
+    "acquisition": "ad → simulation → sample → preview → login → fresh proposal → confirm → reset",
+    "pass": true
+  },
+  {
+    "mockDelayedProgress": "tool step visible while POST still pending; agent badge after completion",
+    "pass": true
+  }
+]
+```
+
+Two complete repeat presentations and the admin/adviser path:
+
+```text
+PASS run 1 ioana: term-deposit, confirmed
+PASS run 1 andrei: buffer-savings, confirmed
+PASS run 1 mihai: diversified-fund, confirmed
+PASS run 1 elena: business-deposit-ladder, confirmed
+PASS run 2 ioana: term-deposit, confirmed
+PASS run 2 andrei: buffer-savings, confirmed
+PASS run 2 mihai: diversified-fund, confirmed
+PASS run 2 elena: business-deposit-ladder, confirmed
+PASS admin 1360: seven-step funnel, agent metrics, adviser transcript, no overflow
+PASS admin 390: seven-step funnel, agent metrics, adviser transcript, no overflow
+PASS zero browser JavaScript errors
+```
+
+Text/contrast inspection of the displayed desktop planning/account state (disabled controls excluded from contrast requirements):
+
+```json
+{
+  "checked": 180,
+  "minimumContrast": 4.939058812951704,
+  "failures": []
+}
+```
+
+Visible focus styles are defined for interactive controls. These browser/layout/contrast checks support the tested states; they are not a full accessibility audit. Screenshots: [1360](docs/screenshots/task2-1360.png), [1920](docs/screenshots/task2-1920.png), [390](docs/screenshots/task2-390.png), [mock progress](docs/screenshots/task2-mock-progress.png). The last image uses the delayed mock, explicitly not a live model.
+
+### Impact — executed hypothetical scenario
+
+```bash
+npm run impact -- --visitors=10000 --chatRate=0.15 --accountRate=0.3 --activationRate=0.35 --monthly=300
+```
+
+The actual baseline output is:
+
+```json
+{
+  "conversations": 1500,
+  "accounts": 450,
+  "fundedPlans": 157.5,
+  "fundedPlansPer10000Clicks": 157.5,
+  "assetsGatheredPerMonthRon": 47250,
+  "modelCostUsd": 30,
+  "modelCostPerActivatedPlanUsd": 0.19047619047619047
+}
+```
+
+Every input and sensitivity value is hypothetical, including default USD 0.02/conversation. No production data, commercial lift or measured live-model price is asserted. Confirmation is not funding; the calculator explicitly assumes a later successful debit. [IMPACT_MODEL](docs/IMPACT_MODEL.md) gives formulas, exclusions, sensitivity and bank impact. Tests check conditional rates, denominator behavior, units and impossible inputs.
+
+### Reviewer checklist and outstanding limits
+
+| Task 2 item | Result |
+|---|---|
+| 1 · Tests and 25+ conversation eval additions | PASS: 106 tests; 74/74 scenarios; 32 new conversation scenarios; 22/22 safety. |
+| 2 · Normal Ioana login reaches agent | PASS: phone/email/canonical history tests; browser approved login after preview; no duplicate active Ioana. |
+| 3 · Personal EN/RO questions per persona | PASS: all four × both languages × required question families in unit coverage, plus eval and browser checks. |
+| 4 · Questions preserve proposal; changes replace | PASS: unit/eval/HTTP and browser fees → confirm and car → deposit diff. |
+| 5 · Reset / two presentations | PASS: exact seed restoration tests and two four-persona browser confirmations. |
+| 6 · Smoke and provider failures | Harness/mock coverage PASS; no-key exit 2 PASS; real Bedrock smoke 0/5 due HTTP 403, unresolved externally. |
+| 7 · Actual progress / normal POST | PASS with delayed mock, owned polling and complete POST response. |
+| 8 · Source readability | PASS: zero src JS lines >140; identical pre/post test/scenario/tool results and facts hash. |
+| 9 · Anonymous preview / no confirm | PASS through offline and real agent loop with scripted provider; HTTP/bank/UI confirmation boundaries tested. |
+| 10 · Runbook and impact | PASS; hypothetical assumptions and measured evidence kept separate. |
+| 11 · No dependencies/secrets | PASS for branch changes; no dependencies, no credential values in diff, no secrets copied to source/logs. |
+| 12 · README and demo script | PASS offline: acquisition → sample → preview → login → fresh proposal → confirm; all four personas and reset verified. Live version requires corrected access. |
+
+T7 was completed before T5/T6 to prioritize the user's explicit request to integrate the agent into the acquisition journey; T6 followed, then T5 and T8. No dependency or formatter was added, no deck/source files or git history were deleted or rewritten, and Task 2 commits were made only with the full suite green.
+
+Remaining limits: Bedrock authorization and exact Opus ID/availability require secure settings outside repository code. Full live quality and actual model pricing remain unverified. Rule-based/heuristic safety tests do not prove arbitrary-model semantic safety. The JSON store, process-local locks/progress/limits, fixed synthetic date and banking/identity stand-ins remain demo constraints; production needs transactions, shared state, consent, global budgets and real integrations. Preview allocations and business ladders are advisory; this demo does not open actual deposits. No claim of millions of customers, commercial uplift or production readiness is made.
+
+Reusable cloud start instructions were saved for agent-polish, reset, connection, live smoke, impact and current access diagnosis. Existing installation/secret bindings were preserved. Startup and repeatable setup were exercised in this instance; saving the draft does not publish a snapshot or establish restoration in a fresh task. GitHub API access is now available, unlike the historical Task 1 limitation; the requested final operation is draft PR creation only, never merge.

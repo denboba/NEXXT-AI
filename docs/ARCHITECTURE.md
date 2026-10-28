@@ -6,13 +6,13 @@ The app is a dependency-free CommonJS Node HTTP service. There is no build step.
 
 | Component | Responsibility |
 |---|---|
-| `src/data/personas.js` | Seeded PRNG, fixed synthetic date, four profiles, twelve months of transactions, repeatable opening/final balances. Adds personas without overwriting the legacy demo client or existing accounts. |
+| `src/data/personas.js` | Seeded PRNG, fixed synthetic date, four profiles, twelve months of transactions, repeatable opening/final balances. Uses one canonical Ioana identity for phone/email and persona access. A repeatable migration archives the duplicate legacy seed while preserving its net ledger activity and references. |
 | `src/tools/finance.js` | Spending summaries and deterministic buffer, obligation, surplus, micro-saving and ladder calculations. Negative surplus stays negative. |
 | `src/tools/index.js` | Validated JSON-schema-style tool definitions, session-only context, data cards and controlled proposal/risk/handoff operations. No tool activates plans or accepts another customer ID. |
 | `src/agent/provider.js` and adapters | Anthropic Messages, compatible Chat Completions and Bedrock Converse normalized to text/tool calls/usage. Tests use a replayable scripted provider. |
 | `src/agent/agent.js` | Six tool-iteration ceiling, 30-second default deadline (`LLM_TIMEOUT_MS`, max 60 s), token budget, tool execution, trace, guard retry, bounded memory, pricing and deterministic fallback. |
 | `src/agent/prompt.js` | Versioned policy separating system instructions from untrusted customer/tool/profile/merchant data. |
-| `src/agent/offline.js` | Explicit deterministic planner calling the same registry. It is a rule-based fallback, not an LLM. |
+| `src/agent/offline.js` | Explicit deterministic conversational planner calling the same registry. Questions use focused tools and preserve pending proposals; explicit amount/horizon/risk changes explain a diff. It is a rule-based fallback, not an LLM. |
 | `src/coach.js` | Original anonymous ad-to-sign-up/login conversation and FAQ. Existing chip and onboarding flows remain. |
 | `src/bank.js` | Ordered onboarding, OTP/approval demo, suitability and affordability, immutable proposals, separate confirmation, account ledger and explicit demo debit. |
 | `src/store.js` | JSON-file persistence or in-memory tests. It exposes a small store boundary, but callers still mutate `db`; migration to a real database requires scoped repository methods and transactions. |
@@ -21,13 +21,13 @@ The app is a dependency-free CommonJS Node HTTP service. There is no build step.
 
 ## Data flow
 
-1. A cookie identifies a server-side journey. Demo-only persona selection establishes its fictional customer context. The legacy sign-up and login flows can also establish identity; a customer without linked spending history receives a request for context rather than an invented capacity.
+1. A cookie identifies a server-side journey. After an anonymous simulation, `/api/context/connect` explicitly selects a synthetic sample for a read-only preview. It does not set `userId`. A preview proposal is scoped to that journey, marked `preview`, and cannot be confirmed. Approved login invalidates it; the agent must create a fresh proposal using the authenticated balance. A new demo account can explicitly link sample history but never inherits its balance. Demo-only persona selection establishes its fictional customer context. The legacy sign-up and login flows can also establish identity; a customer without linked spending history receives a request for context rather than an invented capacity.
 2. `/api/agent` or a customer-context text turn on `/api/chat` validates length, strips controls, applies session/IP rate limits and serializes that journey's turn. Authentication switching and logout are blocked during an active turn.
 3. A safety prefilter refuses recognized injection, cross-customer, abuse, off-topic and protected-money requests. This is a conservative heuristic, not proof of detection of every possible adversarial prompt.
 4. The model receives a versioned policy, a summary of goal/horizon/risk/amount and the last twelve messages. Each tool revalidates input and obtains the customer from the server session. Tool errors are returned as `{error}`.
 5. Tool results contain deterministic data and optional UI cards. A trace records actual calls and timings. The model may choose the next tool, but tool output text cannot grant capabilities or change server policy.
 6. The final reply must use only numeric figures found in the current turn's results; IDs, names and merchant/profile text do not supply numeric authority. English/Romanian grouping and decimals are canonicalized. A leading-zero decimal is never treated as a grouped integer. One guard retry is allowed, then a safe template is used. Obvious unsafe or off-topic final replies and multiple questions are also rejected. These checks supplement the tools; they are not a general semantic-verification model.
-7. The browser renders the response and cards with `agent` or `offline`. This mode describes the path that answered, not the presence of a stored API key. Nonstreaming traces appear when the turn finishes; there is no simulated token streaming.
+7. The browser renders the response and cards with `agent` or `offline`. This mode describes the path that answered, not the presence of a stored API key. Session-owned progress events appear while a turn runs; complete traces arrive in the normal POST response. There is no simulated token streaming.
 
 ## Authority and money movement
 
@@ -60,10 +60,18 @@ Product returns, fees, settlement days and the single suitability question are d
 | Global rate limit | HTTP 429; the load runner counts the journey as failed and exits nonzero. |
 | JSON write failure | Request may fail; this demo has no database transaction rollback or multi-writer safety. A real database is required before production. |
 
-The store is single-process and rewrites the JSON dataset on flush. Rate limits and the in-flight journey lock are process-local. A multi-instance deployment must move sessions, limits, locks, proposals and audit to shared transactional storage with idempotency constraints. Provider global monetary budgets, circuit breakers, shared caches and backoff remain production work; do not infer these from a per-turn token cap. Cache only deterministic tool outputs with versioned assumptions and customer-scoped keys.
+The store is single-process and rewrites the JSON dataset on flush. Rate limits and the in-flight journey lock are process-local. A multi-instance deployment must move sessions, limits, locks, proposals and audit to shared transactional storage with idempotency constraints. Provider global monetary budgets, circuit breakers and shared caches remain production work; one deadline-bounded transient retry is implemented, but do not infer these from a per-turn token cap. Cache only deterministic tool outputs with versioned assumptions and customer-scoped keys.
 
 Admin endpoints require `ADMIN_TOKEN` in shared environments. Audit entries contain synthetic persona IDs, allowed tool names, decisions/reason codes and timestamps, not raw input, phone/email, transcripts or credentials. The separately protected adviser queue intentionally retains the demo conversation. The demo supports same-origin POST checks and SameSite cookies; production still needs appropriate HTTPS, session lifecycle and security review.
 
 ## Validation boundaries
 
-See [EVAL_REPORT.md](EVAL_REPORT.md), [SCALE.md](SCALE.md) and [../REPORT.md](../REPORT.md). Scripted evaluation tests the real loop and registry without a real model. Adapter protocol tests and an injected browser fixture do not establish live-model quality. Bedrock Opus 5.5 availability and the live 90% quality target remain unverified until the configured Region/model/key can be exercised. Screenshots and browser checks use a throwaway Playwright installation outside the repository; it is not a project dependency.
+See [EVAL_REPORT.md](EVAL_REPORT.md), [SCALE.md](SCALE.md) and [../REPORT.md](../REPORT.md). Scripted evaluation tests the real loop and registry without a real model. Adapter protocol tests and an injected browser fixture do not establish live-model quality. Bedrock Opus 5.5 availability and the live 90% quality target remain unverified: the configured Bedrock smoke run received HTTP 403 access denial, with no successful inference. Screenshots and browser checks use a throwaway Playwright installation outside the repository; it is not a project dependency.
+
+## Turn progress and repeat presentations
+
+`GET /api/agent/status?turnId=…` returns only the owning journey's actual provider/tool progress and elapsed time. It never changes financial state. Completed calls remain available in the regular POST response, preserving the non-streaming interface. Progress and turn locks are currently in-process; a multi-instance deployment needs shared state.
+
+Adapters classify provider errors and retry 429/5xx/reset failures once within a separate call deadline (default 20 seconds) and the total turn deadline (default 30 seconds, capped at 60). Auth/model/bad-request errors do not get blind retries. Raw errors and credentials are never surfaced in the trace. Unknown usage stays unpriced. A provider failure selects the same scoped deterministic tools and changes the answer badge to offline.
+
+The demo-only reset endpoint restores all four seed personas and removes affected journeys, proposals, plans, confirmations and ledger changes. It checks origin, rate-limits calls, refuses to run during active turns and retains an audit entry. Active-plan updates require a new immutable proposal plus confirmation; the agent cannot change an active amount directly.
