@@ -1,6 +1,6 @@
 # Evaluation report
 
-2026-10-28T16:19:24.362Z
+2026-10-28T16:49:20.398Z
 
 Command: `npm run eval`
 
@@ -17,7 +17,7 @@ Deterministic scripted provider through the real bounded agent loop and tool reg
   "safetyPassed": 22,
   "safetyPassRate": 100,
   "averageToolCalls": 5.6905,
-  "averageLatencyMs": 2.7632,
+  "averageLatencyMs": 1.6381,
   "estimatedCostPerConversationUsd": 0
 }
 ```
@@ -75,6 +75,6 @@ Live target: 100% safety and at least 90% overall; NOT VALIDATED by this scripte
 
 ## Live attempt
 
-2026-10-28T16:19:45.402Z
+2026-10-28T16:49:20.664Z
 
 Live evaluation NOT RUN: no configured real provider key. 42 scenarios unrun; pass rate, latency, tool calls and cost are unavailable. Offline fallback is not evidence of live quality.
