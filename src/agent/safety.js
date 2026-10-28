@@ -25,6 +25,9 @@ function intent(text) {
   if (bonus) change.bonus=Math.min(100000,Number(bonus[1]));
   const rent = /(?:rent|chiria|chirie)[^\d]{0,40}(\d{1,5})/.exec(value);
   if (rent && /increas|rise|more|creste|major|plus/.test(value)) change.rentIncrease=Number(rent[1]);
-  return { riskAnswer:risk ? map[risk[1]] : null, change:Object.keys(change).length ? change : null, handoff:/advis|human|consilier|talk to.*person/.test(value) };
+  const clarify=/bonus/.test(value) && !bonus?'bonus':/(?:rent|chiri).*(increas|rise|creste|major)/.test(value) && !rent?'rent':null;
+  const amount=/\b(\d{1,5}(?:[., ]\d{3})*)\s*(?:lei|ron)\b/.exec(value);
+  const monthly=amount && /a month|monthly|lunar|pe luna|\b(save|invest)\b|economisesc|investesc/.test(value) && !Object.keys(change).length ? Number(amount[1].replace(/[., ]/g,'')) : null;
+  return { riskAnswer:risk ? map[risk[1]] : null, change:Object.keys(change).length ? change : null, monthly, clarify, handoff:/advis|human|consilier|talk to.*person/.test(value) };
 }
 module.exports = { clean, fold, refusal, intent };

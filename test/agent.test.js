@@ -69,3 +69,9 @@ test('a changed horizon replaces a fund proposal with an explained short-goal pl
   assert.equal(proposal.productId,'term-deposit');
   assert.throws(()=>bank.confirmProposal(ctx.store,ctx.journey,old.id,true),/changed/);
 });
+test('a customer-selected lower monthly amount changes the proposal and tool simulation',async()=>{
+  const ctx=setup();await run({...ctx,text:'medium',provider:null});
+  const result=await run({...ctx,text:'I want to save 300 lei monthly',provider:null});
+  assert.equal(result.cards.find(card=>card.type==='plan_proposal').proposal.monthly,300);
+  assert.equal(result.cards.find(card=>card.type==='simulation').sim.monthly,300);
+});

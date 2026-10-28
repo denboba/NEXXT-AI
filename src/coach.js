@@ -272,7 +272,7 @@ async function handle(store, journey, input, ctx = {}) {
         fear_loss: copy(journey,"legacyLossReply"),
         withdraw: copy(journey,"legacyAccessReply",{v0:products.byId('diversified-fund').settlementDays}),
         understand: FAQ.how_fund(p,journey),
-        other: copy(journey,"legacySimple"),
+        other: copy(journey,"legacySimpleReply"),
       };
       say(journey, replies[id]);
       c.step = 'ask_years';

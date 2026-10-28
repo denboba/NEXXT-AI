@@ -24,7 +24,7 @@
   "call": "Sună-mă",
   "opportunity": "Oportunitatea",
   "cashShrinks": "Banii din contul curent își pierd treptat puterea de cumpărare",
-  "cashIllustration": "Puterea de cumpărare a 10.000 lei, la o inflație de ~5,5% pe an:",
+  "cashIllustration": "Puterea de cumpărare a {amount} lei, la o inflație de ~{rate}% pe an:",
   "remaining": "rămași după 5 ani",
   "barriers": "De ce nu investesc oamenii",
   "fearLoss": "„Mi-e teamă să nu pierd banii.”",
@@ -38,7 +38,7 @@
   "fund": "Fond",
   "cashLegend": "Numerar (valoare reală)",
   "paidIn": "Contribuții",
-  "assumptions": "Doar simulare · performanțele trecute nu garantează rezultate viitoare. Ipoteze: inflație de 5,5% și randament anual al fondului de 7,2%.",
+  "assumptions": "Doar simulare · performanțele trecute nu garantează rezultate viitoare. Ipoteze: inflație de {inflation}% și randament anual de {rate}%.",
   "currentAccount": "Cont curent",
   "readyIn": "Disponibil în",
   "investments": "Planurile tale de economisire și investiții",
@@ -289,5 +289,6 @@
   "dailyConversations": "Conversații pe zi (UTC)",
   "topTools": "Instrumente folosite frecvent",
   "topRefusals": "Motive frecvente de refuz",
-  "audit": "Jurnal de decizii · doar identificatori fictivi"
+  "audit": "Jurnal de decizii · doar identificatori fictivi",
+  "asOf": "Date sintetice valabile la"
 }

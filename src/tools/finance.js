@@ -35,7 +35,7 @@ function capacity(customer, balance = customer.balance, changes = {}) {
   const adjustedBalance = round(balance + (changes.bonus || 0));
   const idleCash = Math.max(0, round(adjustedBalance - buffer - obligationTotal - cashFlowLowReserve));
   const bufferShortfall = Math.max(0, round(buffer + obligationTotal + cashFlowLowReserve - adjustedBalance));
-  const surplus = Math.max(0, round(summary.monthlySurplus - extraRent));
+  const surplus = round(summary.monthlySurplus - extraRent);
   const bufferReady = bufferShortfall === 0;
   const safeMonthly = bufferReady ? Math.max(0, Math.min(irregular ? 200 : 2000, Math.floor(surplus * .5 / 50) * 50)) : 0;
   const subscriptionSaving = round(summary.subscriptions.reduce((sum, bill) => sum + bill.monthly, 0) * .5);

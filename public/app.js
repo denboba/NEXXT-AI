@@ -82,7 +82,7 @@ async function refreshPanel() {
   const p = S.snap.profile;
   if (p.monthly) {
     try { S.panelSim = await api('GET', `/api/simulate?monthly=${p.monthly}&years=${p.years || S.years}`); } catch { S.panelSim = null; }
-  } else S.panelSim = null;
+  } else { S.panelSim = null; const data=await api('GET','/api/shrink');shrinkData=data.points;S.shrinkInfo=data; }
 }
 
 // ---------- chat ----------
@@ -208,9 +208,9 @@ function sideChat() {
     side.append(h('section', { class: 'card dark' },
       h('p', { class: 'eyebrow' }, t("opportunity")),
       h('h2', null, t("cashShrinks")),
-      h('p', { style: 'color:#C8C6BE' }, t("cashIllustration")),
+      h('p', { style: 'color:#C8C6BE' }, t("cashIllustration",{amount:fmt(S.shrinkInfo.amount),rate:(S.shrinkInfo.inflation*100).toLocaleString(I18n.locale)})),
       shrinkChart(),
-      h('div', { style: 'display:flex;gap:12px;align-items:baseline;margin-top:8px' }, h('span', { class: 'big y' }, '7,651 lei'), h('span', { style: 'color:#C8C6BE' }, t("remaining")))));
+      h('div', { style: 'display:flex;gap:12px;align-items:baseline;margin-top:8px' }, h('span', { class: 'big y' }, fmt(shrinkData.at(-1).value)+' lei'), h('span', { style: 'color:#C8C6BE' }, t("remaining")))));
     side.append(h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, t("barriers")),
       h('ul', { style: 'margin:0;padding-left:20px' }, h('li', null, t("fearLoss")), h('li', null, t("fearAccess")), h('li', null, t("fearUnderstanding"))),
       h('p', { class: 'disc' }, t("plainAnswers"))));
@@ -270,7 +270,7 @@ function simPanel(sim, profile) {
     h('div', { class: 'legend' }, h('span', null, h('i', { style: 'background:#121212' }), t("fund")), h('span', null, h('i', { style: 'background:#B3321F' }), t("cashLegend")), h('span', null, h('i', { style: 'background:#9A978E' }), t("paidIn"))),
     h('div', { class: 'slider' }, h('label', null, h('span', null, t("monthlyAmount")), out), r),
     seg,
-    h('p', { class: 'disc' }, t("assumptions")));
+    h('p', { class: 'disc' }, t("assumptions",{inflation:(sim.assumptions.inflation*100).toLocaleString(I18n.locale),rate:(sim.assumptions.fundReturn*100).toLocaleString(I18n.locale)})));
 }
 
 function sideAccount() {
@@ -502,6 +502,7 @@ function agentCard(card) {
       h('meter',{min:0,max,value,'aria-label':t('category_'+category)},String(value))));
     box.append(h('h4',null,t('recurring')),h('ul',null,card.recurringBills.map(bill=>h('li',null,bill.merchant+' · '+money(bill.monthly)))));
   } else if(type==='capacity') {
+    box.append(row(t('asOf'),card.asOf));
     for(const [key,label] of [['balance','balance'],['buffer','buffer'],['obligationTotal','obligations'],['cashFlowLowReserve','lowReserve'],['idleCash','idleCash'],['safeMonthly','safeMonthly']]) box.append(row(t(label),money(card[key])));
     if(!card.bufferReady) box.append(h('p',null,t('bufferPriority')),row(t('microSaving'),money(card.microSaving)),row(t('readyMonths'),String(card.readyInMonths)));
     if(card.ladder) box.append(h('h4',null,t('ladder')),card.ladder.map(rung=>row(t('monthNumber',{month:rung.month}),money(rung.amount))));
@@ -512,7 +513,7 @@ function agentCard(card) {
       h('td',null,h('ul',null,[...product.why,...product.whyNot].map(reason=>h('li',null,t('reason_'+reason)))),h('small',null,t('liquidity')+': '+t('liquidity_'+product.liquidity)+' · '+t('minimumHorizon')+': '+product.minHorizonYears.toLocaleString(I18n.locale)+' · '+t('annualFee')+': '+product.annualFeePct.toLocaleString(I18n.locale)+'%'))))));
     box.append(h('div',{class:'table-wrap',tabindex:0,'aria-label':t('comparisonScroll')},table),h('p',{class:'disc'},t('illustrativeFees')));
   } else if(type==='simulation') {
-    box.append(row(t('paidIn'),money(card.sim.contributed)),row(t('fund'),money(card.sim.fund)),row(t('cashReal'),money(card.sim.cashReal)),row(t('stressCase'),money(card.stressFund)),lineChart(card.sim),h('p',{class:'disc'},t('assumptions')));
+    box.append(row(t('paidIn'),money(card.sim.contributed)),row(t('fund'),money(card.sim.fund)),row(t('cashReal'),money(card.sim.cashReal)),row(t('stressCase'),money(card.stressFund)),lineChart(card.sim),h('p',{class:'disc'},t('assumptions',{inflation:(card.sim.assumptions.inflation*100).toLocaleString(I18n.locale),rate:(card.sim.assumptions.fundReturn*100).toLocaleString(I18n.locale)})));
   } else if(type==='plan_proposal') {
     const p=card.proposal,confirmed=S.me?.portfolio?.plans?.some(plan=>plan.proposalId===p.id);
     box.append(h('p',null,t('product_'+p.productId)),row(t('monthlyAmount'),money(p.monthly)),row(t('expires'),new Date(p.expires).toLocaleTimeString(I18n.locale)),h('p',{class:'disc'},t(confirmed?'planActiveNoDebit':'proposalOnly')));

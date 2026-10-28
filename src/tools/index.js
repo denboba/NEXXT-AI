@@ -62,7 +62,7 @@ function createTools({ store, journey }) {
       if (!product || product.expectedReturn === null) throw new bank.BankError('No illustrative return assumption for that product.');
       const sim = engine.simulate({ monthly, years, fundReturn: product.expectedReturn });
       const stress = engine.simulate({ monthly, years, fundReturn: product.expectedReturn, drop: product.risk >= 2 ? .2 : 0, dropAtMonth: years * 12 });
-      return { ...sim, stressFund: stress.fund, illustrative: true, ui: { type: 'simulation', sim, stressFund: stress.fund, productId, illustrative: true } };
+      return { ...sim, annualReturnPct: Number((product.expectedReturn*100).toFixed(2)), inflationPct:Number((sim.assumptions.inflation*100).toFixed(2)), stressFund: stress.fund, illustrative: true, ui: { type: 'simulation', sim, stressFund: stress.fund, productId, illustrative: true } };
     },
     what_if({ change }) {
       if (!journey.pendingChange || Object.keys(change).length!==Object.keys(journey.pendingChange).length || Object.keys(change).some(key=>change[key]!==journey.pendingChange[key])) throw new bank.BankError('A what-if change must come from the current customer message.', 409);

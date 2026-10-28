@@ -91,7 +91,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         // No recommendation can skip the authoritative capacity check.
         const replyReason=safety.refusal(reply.replace(/not guaranteed|cannot guarantee|nu sunt garantate|nu pot garanta/ig,''),customer);
         const unsafe=['injection','cross_customer','abuse','off_topic','guarantee'].includes(replyReason) || /\b(i have|i've|am) (activated|transferred|debited)|plan (is|has been) activated/i.test(reply);
-        if(reply && reply.length<=1800 && results.find_savings_capacity && numbersAllowed(reply,facts) && !unsafe) { final=reply; break; }
+        if(reply && reply.length<=1800 && (reply.match(/[?？]/g) || []).length<=1 && results.find_savings_capacity && numbersAllowed(reply,facts) && !unsafe) { final=reply; break; }
         if(guardRetries++===0) {
           messages.push({role:'assistant',content:reply.slice(0,1800)},{role:'user',content:'The answer failed validation. Use the tools before advice and ONLY numbers present in this turn’s tool outputs. Never promise returns. Give a brief safe final answer.'});
         } else throw new Error('guard_rejection');

@@ -33,6 +33,12 @@ test('numeric guard applies the same normalization to Romanian source facts', ()
   assert.equal(numbersAllowed('Nu pot garanta un câștig.', '500 lei'), true);
 });
 
+test('leading-zero decimal assumptions cannot become thousand-grouped claims', () => {
+  assert.equal(numbersAllowed('72 lei', '0.072 annual return'),false);
+  assert.equal(numbersAllowed('55%', '0.055 inflation'),false);
+  assert.equal(numbersAllowed('0,072', '0.072'),true);
+});
+
 test('provider reply with invented Romanian figures falls back', async () => {
   const fetchImpl = async () => ({ok:true, json:async () => ({content:[{type:'text',text:'Vei avea 35.999 lei la 7,9%.'}]})});
   assert.equal(await ask({text:'Cât voi avea?', facts:'35771 lei; 7.5%', env:{ANTHROPIC_API_KEY:'test'},fetchImpl}), null);

@@ -32,7 +32,7 @@ function canonicalNumber(raw) {
   } else if (comma || dot) {
     const separator = comma ? ',' : '.';
     const parts = value.split(separator);
-    if (parts.length > 1 && parts[0].length <= 3 && parts.slice(1).every(part => /^\d{3}$/.test(part))) value = parts.join('');
+    if (parts.length > 1 && /^[1-9]\d{0,2}$/.test(parts[0]) && parts.slice(1).every(part => /^\d{3}$/.test(part))) value = parts.join('');
     else if (parts.length === 2 && parts.every(part => /^\d+$/.test(part))) value = parts.join('.');
     else return null;
   }

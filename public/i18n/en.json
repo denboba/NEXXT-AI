@@ -24,7 +24,7 @@
   "call": "Call me",
   "opportunity": "The opportunity",
   "cashShrinks": "Money in a current account quietly shrinks",
-  "cashIllustration": "What 10,000 lei in cash will buy, at ~5.5% inflation a year:",
+  "cashIllustration": "What {amount} lei in cash will buy, at ~{rate}% inflation a year:",
   "remaining": "left after 5 years",
   "barriers": "Why people don’t invest",
   "fearLoss": "“I’m afraid of losing my money.”",
@@ -38,7 +38,7 @@
   "fund": "Fund",
   "cashLegend": "Cash (real value)",
   "paidIn": "Paid in",
-  "assumptions": "Simulation only · past returns don’t guarantee future results. Assumes 5.5% inflation and a 7.2% yearly fund return.",
+  "assumptions": "Simulation only · past returns don’t guarantee future results. Assumes {inflation}% inflation and a {rate}% yearly product return.",
   "currentAccount": "Current account",
   "readyIn": "Ready in",
   "investments": "Your saving and investment plans",
@@ -289,5 +289,6 @@
   "dailyConversations": "Conversations per day (UTC)",
   "topTools": "Top tools",
   "topRefusals": "Top refusal reasons",
-  "audit": "Decision audit · synthetic persona IDs only"
+  "audit": "Decision audit · synthetic persona IDs only",
+  "asOf": "Synthetic data as of"
 }

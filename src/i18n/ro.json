@@ -104,5 +104,13 @@
   "riskLabel_3": "risc mediu",
   "riskLabel_5": "risc ridicat",
   "legacyMonth": "lună",
-  "legacyMonths": "luni"
+  "legacyMonths": "luni",
+  "clarifyBonus": "Care este valoarea bonusului? Îl voi trata ca ipotetic și voi păstra rezerva protejată.",
+  "clarifyRent": "Cu cât va crește chiria lunară?",
+  "bufferDeficit": "Nu investi. Bugetul actual nu permite un nou angajament de economisire. Verifică cheltuielile și abonamentele cu un consultant înainte să stabilești o sumă lunară.",
+  "healthyShort": "Păstrează accesibilă rezerva de {months} luni. Un obiectiv apropiat favorizează economii accesibile sau un depozit, nu un fond de piață; suma lunară prudentă este {amount} lei.",
+  "healthyConservative": "Păstrează accesibilă rezerva de {months} luni. Compară produse conservatoare, potrivite toleranței tale la risc; suma lunară prudentă este {amount} lei.",
+  "amountOutside": "Alege o sumă în limitele produsului și bugetului afișate. Nu s-a activat niciun plan.",
+  "savingQuestion": "Pentru o propunere de economisire accesibilă, preferi riscul scăzut? Răspunde scăzut pentru a continua.",
+  "legacySimpleReply": "Bine, să păstrăm lucrurile simple."
 }

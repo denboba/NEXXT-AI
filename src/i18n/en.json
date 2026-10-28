@@ -104,5 +104,13 @@
   "riskLabel_3": "medium risk",
   "riskLabel_5": "high risk",
   "legacyMonth": "month",
-  "legacyMonths": "months"
+  "legacyMonths": "months",
+  "clarifyBonus": "What is the bonus amount? I will treat it as hypothetical and keep your protected buffer unchanged.",
+  "clarifyRent": "By how much will your monthly rent increase?",
+  "bufferDeficit": "Do not invest. Your current budget does not support a new saving commitment. Review expenses and subscriptions with an adviser before setting a monthly amount.",
+  "healthyShort": "Keep your {months}-month essentials buffer accessible. A short goal favors accessible savings or a term deposit over a market fund; the safe monthly amount is {amount} lei.",
+  "healthyConservative": "Keep your {months}-month essentials buffer accessible. Compare conservative products within your risk comfort; the safe monthly amount is {amount} lei.",
+  "amountOutside": "Choose an amount within the displayed product and budget limits. No plan has been activated.",
+  "savingQuestion": "For an accessible buffer-saving proposal, is low risk your preference? Reply low to continue.",
+  "legacySimpleReply": "Great, then let’s keep it simple."
 }

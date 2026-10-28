@@ -28,6 +28,12 @@ test('user-entered rent increases reduce authoritative capacity at confirmation'
  assert.throws(()=>require('../src/bank').confirmProposal(store,journey,before.id,true),/changed/);
  assert.ok(createTools({store,journey}).execute('propose_plan',{productId:'diversified-fund',monthly:500}).error);
 });
+test('a deficit cannot be hidden by clamping surplus or used to fund micro-saving',async()=>{
+ const store=new Store(null);seed(store);const journey={id:'own',userId:'persona-andrei',coach:{profile:{risk:'low'}},memory:{},messages:[]};
+ const result=await run({store,journey,text:'My rent increases by 900 lei',provider:null});
+ assert.match(result.text,/Do not invest/);assert.ok(!result.cards.some(card=>card.type==='plan_proposal'));
+ const capacity=createTools({store,journey}).execute('find_savings_capacity');assert.ok(capacity.monthlySurplus<0);assert.equal(capacity.microSaving,0);
+});
 test('agent per-session rate limiting, cross-origin rejection and audit redaction',async t=>{
  const app=await boot();t.after(app.close);const a=app.client(),b=app.client();await a.post('/api/journey',{});await a.post('/api/persona',{persona:'ioana'});
  assert.equal((await a.post('/api/agent',{text:'\u0000\u0001'})).status,400);
