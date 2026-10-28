@@ -139,17 +139,24 @@ test('plans: suitability gate, activation, first debit, funnel, insufficient bal
   await c.post('/api/login/approve', { requestId: req.data.requestId });
   await c.get(`/api/login/status?requestId=${req.data.requestId}`);
 
+  const legacy = Object.values(app.store.db.users).find(user => user.seed);
+  app.store.db.customers[legacy.id] = require('../src/data/personas').personas()[0];
+  require('../src/bank').accountOf(app.store, legacy.id).balance = 18400;
+
   let r = await c.post('/api/plans', { productId: 'diversified-fund', monthly: 500 });
   assert.equal(r.status, 409, 'risk question must be answered first');
 
   r = await c.post('/api/chat', { type: 'choice', id: 'r_low' });
-  const prod = r.data.messages.at(-1).widgets[0];
-  assert.equal(prod.recommended, 'bond-fund');
-  assert.equal(prod.items.find((i) => i.id === 'stocks-etfs').allowed, false);
+  const prod = r.data.messages.at(-1).widgets.find(widget => widget.type === 'compare');
+  assert.equal(prod.products[0].id, 'bond-fund');
+  assert.equal(prod.products.find((i) => i.id === 'stocks-etfs').eligible, false);
   assert.equal((await c.post('/api/plans', { productId: 'stocks-etfs', monthly: 500 })).status, 403);
   assert.equal((await c.post('/api/plans', { productId: 'bond-fund', monthly: 50 })).status, 400);
 
   r = await c.post('/api/plans', { productId: 'bond-fund', monthly: 500 });
+  assert.equal(r.status, 200);
+  assert.equal(Object.keys(app.store.db.plans).length, 0, 'a proposal cannot activate a plan');
+  r = await c.post(`/api/proposals/${r.data.proposal.id}/confirm`, { confirmed: true });
   assert.equal(r.status, 200);
   const plan = r.data.plan;
   assert.match(plan.nextDebit, /^\d{4}-\d{2}-05$/);
@@ -158,7 +165,7 @@ test('plans: suitability gate, activation, first debit, funnel, insufficient bal
 
   r = await c.post(`/api/plans/${plan.id}/run-debit`);
   assert.equal(r.status, 200);
-  assert.equal(r.data.account.balance, 2000);
+  assert.equal(r.data.account.balance, 17900);
   assert.equal(r.data.portfolio.invested, 500);
   assert.equal(r.data.ledger[0].kind, 'debit');
 
@@ -180,7 +187,11 @@ test('a client cannot touch another client\'s plan', async (t) => {
   await signUp(a);
   await a.post('/api/chat', { type: 'choice', id: 'r_medium' });
   await a.post('/api/me/topup', { amount: 1000 });
-  const plan = (await a.post('/api/plans', { productId: 'diversified-fund', monthly: 500 })).data.plan;
+  const signed = Object.values(app.store.db.users).find(user => user.kind === 'new');
+  app.store.db.customers[signed.id] = require('../src/data/personas').personas()[0];
+  require('../src/bank').accountOf(app.store, signed.id).balance = 18400;
+  const proposal = (await a.post('/api/plans', { productId: 'diversified-fund', monthly: 500 })).data.proposal;
+  const plan = (await a.post(`/api/proposals/${proposal.id}/confirm`, { confirmed: true })).data.plan;
   const b = app.client(); await b.post('/api/journey', {});
   const req = await b.post('/api/login/request', { identifier: '+40 722 000 111' });
   await b.post('/api/login/approve', { requestId: req.data.requestId });

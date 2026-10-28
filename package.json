@@ -4,9 +4,14 @@
   "description": "AI Investment Coach: from social ad to first investment in one conversation",
   "private": true,
   "type": "commonjs",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "setup": "node scripts/setup.js",
     "start": "node server.js",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "loadtest": "node scripts/loadtest.js",
+    "eval": "node eval/run.js"
   }
 }

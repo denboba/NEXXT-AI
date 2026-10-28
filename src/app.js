@@ -8,6 +8,9 @@ const products = require('./products');
 const analytics = require('./analytics');
 const bank = require('./bank');
 const coach = require('./coach');
+const agent = require('./agent/agent');
+const { language } = require('./i18n');
+const { select } = require('./agent/provider');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -16,10 +19,12 @@ const PAGES = { '/': 'index.html', '/ad': 'ad.html', '/admin': 'admin.html' };
 const COOKIE = 'sid';
 const MAX_BODY = 20 * 1024;
 
-function createApp({ store, env = process.env, fetchImpl }) {
+function createApp({ store, env = process.env, fetchImpl, provider }) {
   const demo = env.DEMO_MODE !== '0';
   bank.seedClients(store);
+  require('./data/personas').seed(store);
   const hits = new Map();
+  const busy = new Set();
 
   const limited = (ip, group, max) => {
     const now = Date.now(), key = ip + group;
@@ -58,11 +63,11 @@ function createApp({ store, env = process.env, fetchImpl }) {
   };
   const clean = (s) => String(s || '').replace(/[^\w.\- ]/g, '').slice(0, 40) || null;
 
-  const publicUser = (u) => u && { id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, kind: u.kind };
+  const publicUser = (u) => u && { id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, kind: u.kind, personaId: u.personaId || null, synthetic: Boolean(u.synthetic) };
   const snapshot = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
     return { journeyId: j.id, source: j.source, stage: j.coach ? j.coach.stage : 'web', step: j.coach ? j.coach.step : 'ask_amount',
-      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user) };
+      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user), language: j.language || 'en', proposalVersion:j.proposalVersion || 0, ...(j.lastAgent || {}) };
   };
   const ctxFor = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
@@ -106,25 +111,67 @@ function createApp({ store, env = process.env, fetchImpl }) {
   const routes = [];
   const route = (method, pattern, opts, handler) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), opts, handler });
 
-  route('GET', '/api/config', {}, () => ({ demoMode: demo, llm: Boolean(env.ANTHROPIC_API_KEY), limits: engine.LIMITS, assumptions: engine.DEFAULTS }));
+  route('GET', '/api/config', {}, () => ({ demoMode: demo, llm: Boolean(select({env,fetchImpl})), synthetic: true, limits: engine.LIMITS, assumptions: engine.DEFAULTS }));
   route('GET', '/api/simulate', {}, ({ query }) => engine.simulate({ monthly: Number(query.get('monthly')), years: Number(query.get('years') || 5) }));
   route('GET', '/api/shrink', {}, ({ query }) => ({ amount: 10000, points: engine.cashShrink(10000, Number(query.get('years') || 5)), inflation: engine.DEFAULTS.inflation }));
 
   route('POST', '/api/journey', {}, ({ body, j, res, req }) => {
     if (!j) {
       j = newJourney({ source: clean(body.source), campaign: clean(body.campaign) });
+      j.language = language(body.language || req.headers['accept-language']);
       res.setHeader('set-cookie', `${COOKIE}=${j.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure(req) ? '; Secure' : ''}`);
     }
+    if (['en','ro'].includes(body.language)) j.language=body.language;
     coach.start(store, j);
     return snapshot(j);
   });
   route('GET', '/api/journey', { journey: true }, ({ j }) => snapshot(j));
+  route('POST', '/api/language', { journey: true }, ({ j, body }) => {
+    if (!['en','ro'].includes(body.language)) throw new bank.BankError('Unsupported language.');
+    j.language = body.language; store.save(); return snapshot(j);
+  });
+
+  route('GET', '/api/personas', {}, () => {
+    if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
+    return { personas: require('./data/personas').DEFINITIONS.map(({ id, firstName, lastName, description }) => ({ id, name: firstName + ' ' + lastName, description })) };
+  });
+  route('POST', '/api/persona', { journey: true, rate: ['persona', 20] }, ({ j, body }) => {
+    if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
+    const user = store.db.users['persona-' + body.persona];
+    if (!user?.personaId) throw new bank.BankError('Unknown demo persona.', 404);
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    j.userId = user.id; j.coach = null; j.messages = []; j.msgSeq = 0; j.memory = {}; j.lastAgent = null;
+    coach.start(store, j);
+    completeAuth(j, user, 'existing');
+    return { ...me(user), ...snapshot(j) };
+  });
 
   route('POST', '/api/chat', { journey: true, rate: ['chat', 60] }, async ({ body, j }) => {
+    if ((body.type === 'text' && (store.db.customers[j.userId] || select({env,fetchImpl}))) || (store.db.customers[j.userId] && ['r_low','r_medium','r_high'].includes(body.id))) return agentTurn(j, body.type === 'choice' ? {text:body.id.slice(2)} : body);
     const input = ['choice', 'amount', 'text'].includes(body.type) ? body : { type: 'state' };
     const r = await coach.handle(store, j, input, ctxFor(j));
     return { ...snapshot(j), messages: r.messages, history: j.messages };
   });
+  async function agentTurn(j, body) {
+    if (typeof body.text !== 'string' || !require('./agent/safety').clean(body.text) || body.text.length > 500) throw new bank.BankError('Enter a message of up to 500 characters.');
+    if (limited(j.id, 'agent', 20)) throw new bank.BankError('Too many agent requests. Please wait a minute.', 429);
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    busy.add(j.id);
+    try {
+      const result = await agent.run({store,journey:j,text:body.text,env,fetchImpl,provider});
+      const at = new Date().toISOString();
+      j.messages.push({id:++j.msgSeq,role:'user',text:require('./agent/safety').clean(body.text),at});
+      const message = {id:++j.msgSeq,role:'coach',text:result.text,widgets:result.cards,at};
+      j.messages.push(message);
+      const {text,...meta} = result;
+      j.lastAgent = meta;
+      analytics.track(store,j,'chat_started');
+      if (result.cards.some(card=>card.type==='compare')) analytics.track(store,j,'questions_answered');
+      store.save();
+      return {...snapshot(j),messages:[message],history:j.messages,...meta};
+    } finally { busy.delete(j.id); }
+  }
+  route('POST', '/api/agent', { journey: true, rate: ['agent-ip', 60] }, ({body,j}) => agentTurn(j,body));
 
   route('POST', '/api/handoff', { journey: true, rate: ['handoff', 5] }, ({ body, j }) => {
     const user = j.userId && store.db.users[j.userId];
@@ -143,6 +190,7 @@ function createApp({ store, env = process.env, fetchImpl }) {
   route('POST', '/api/signup/selfie', { journey: true }, ({ body, j }) => ({ step: bank.submitSelfie(store, j, body).step }));
   route('POST', '/api/signup/otp/request', { journey: true, rate: ['otp', 5] }, ({ j }) => bank.requestOtp(store, j, { demo }));
   route('POST', '/api/signup/otp/verify', { journey: true, rate: ['otpv', 10] }, ({ body, j }) => {
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     const { user } = bank.verifyOtp(store, j, body.code);
     completeAuth(j, user, 'new');
     return { ...me(user), ...snapshot(j) };
@@ -151,6 +199,7 @@ function createApp({ store, env = process.env, fetchImpl }) {
   // existing clients
   route('POST', '/api/login/request', { journey: true, rate: ['login', 10] }, ({ body, j }) => bank.requestLogin(store, j, body.identifier));
   route('GET', '/api/login/status', { journey: true }, ({ query, j }) => {
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     const wasIn = j.userId;
     const s = bank.loginStatus(store, j, query.get('requestId'));
     if (s.status === 'approved' && !wasIn) completeAuth(j, store.db.users[j.userId], 'existing');
@@ -164,6 +213,7 @@ function createApp({ store, env = process.env, fetchImpl }) {
     return { status: bank.approveLogin(store, body.requestId, body.approve !== false).status };
   });
   route('POST', '/api/logout', { journey: true }, ({ j, res }) => {
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     j.userId = null; store.save();
     res.setHeader('set-cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
     return { ok: true };
@@ -178,11 +228,22 @@ function createApp({ store, env = process.env, fetchImpl }) {
     return me(user);
   });
   route('POST', '/api/plans', { journey: true, rate: ['plans', 20] }, ({ body, j }) => {
+    requireUser(j);
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    const proposal = bank.proposePlan(store, j, { productId: body.productId, monthly: body.monthly });
+    const ui={type:'plan_proposal',proposal};
+    const message={id:++j.msgSeq,role:'coach',text:require('./i18n').t(j.language,'confirmRequired'),widgets:[ui],at:new Date().toISOString()};
+    j.messages.push(message);store.save();
+    return {proposal,ui,messages:[message],proposalVersion:j.proposalVersion};
+  });
+  route('POST', '/api/proposals/:id/confirm', { journey: true, rate: ['confirm', 20] }, ({ body, j, params }) => {
     const user = requireUser(j);
-    const plan = bank.activatePlan(store, user, { productId: body.productId, monthly: body.monthly, risk: j.coach && j.coach.profile.risk });
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    const alreadyConfirmed=Object.values(store.db.plans).some(plan=>plan.proposalId===params.id);
+    const plan = bank.confirmProposal(store, j, params.id, body.confirmed);
     analytics.track(store, j, 'plan_activated', { productId: plan.productId });
     const before = j.messages.length;
-    coach.onActivated(store, j, plan);
+    if(!alreadyConfirmed) coach.onActivated(store, j, plan);
     return { plan, ...me(user), messages: j.messages.slice(before) };
   });
   route('POST', '/api/plans/:id/run-debit', { journey: true, rate: ['debit', 20] }, ({ params, j }) => {
@@ -206,6 +267,7 @@ function createApp({ store, env = process.env, fetchImpl }) {
   // admin
   route('GET', '/api/admin/metrics', { admin: true }, ({ query }) => analytics.funnel(store, { source: query.get('source') || undefined }));
   route('GET', '/api/admin/handoffs', { admin: true }, () => ({ handoffs: store.db.handoffs.slice(-50).reverse() }));
+  route('GET', '/api/admin/agent-metrics', { admin: true }, ({ query }) => analytics.agentMetrics(store, { source: query.get('source') || undefined }));
 
   // ---------- server ----------
   const SECURITY = {
@@ -229,6 +291,7 @@ function createApp({ store, env = process.env, fetchImpl }) {
         if (req.method !== 'GET') return send(res, 405, 'Method not allowed', SECURITY);
         return serveStatic(req, res, url.pathname);
       }
+      if (req.method === 'POST' && req.headers.origin && req.headers.origin !== `${secure(req) ? 'https' : 'http'}://${req.headers.host}`) return send(res, 403, {error:'Cross-origin requests are not allowed.'});
       if (limited(ip, 'all', 300)) return send(res, 429, { error: 'Too many requests. Please slow down.' });
       let match = null, params = {};
       for (const r of routes) {

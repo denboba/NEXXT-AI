@@ -5,10 +5,12 @@ const engine = require('./engine');
 const products = require('./products');
 const analytics = require('./analytics');
 const llm = require('./llm');
+const {t} = require('./i18n');
+const copy = (journey,key,values) => t(journey?.language,key,values);
 
-const DISCLAIMER = 'Simulation only · past returns don’t guarantee future results';
-const fmt = (n) => Math.round(n).toLocaleString('en-US');
-const WORRY_LABEL = { fear_loss: 'balanced', withdraw: 'withdraw anytime', understand: 'kept simple', other: 'no special worries' };
+const DISCLAIMER = t('en',"legacyDisclaimer");
+const fmt = (n,journey) => Math.round(n).toLocaleString(journey?.language==='ro'?'ro-RO':'en-US');
+const WORRY_LABEL = { fear_loss: 'legacyBalanced', withdraw: "legacyWorryWithdraw", understand: 'legacySimple', other: "legacyWorryOther" };
 
 function say(journey, text, widgets) {
   const m = { id: ++journey.msgSeq, role: 'coach', text, at: new Date().toISOString() };
@@ -24,36 +26,36 @@ function userSaid(journey, text) {
 
 const chips = (key, options, extra = {}) => ({ type: 'chips', key, options, ...extra });
 const FAQ_CHIPS = [
-  { id: 'faq_market_drop', label: 'What if the market drops?' },
-  { id: 'faq_withdraw', label: 'Can I withdraw anytime?' },
-  { id: 'faq_fees', label: 'What fees will I pay?' },
-  { id: 'faq_how_fund', label: 'How does a fund work?' },
+  { id: 'faq_market_drop', label: "legacyFaqDrop" },
+  { id: 'faq_withdraw', label: "legacyFaqWithdraw" },
+  { id: 'faq_fees', label: "legacyFaqFees" },
+  { id: 'faq_how_fund', label: "legacyFaqFund" },
 ];
-const faqChips = () => chips('faq', [...FAQ_CHIPS, { id: 'human', label: 'Talk to a person' }]);
+const faqChips = (journey) => chips('faq', [...FAQ_CHIPS.map(option=>({...option,label:copy(journey,option.label)})), { id: 'human', label: copy(journey,"legacyHuman") }]);
 
 const AMOUNTS = [100, 300, 500, 1000];
 const askAmount = (journey) => say(journey, journey.coach.stage === 'app'
-  ? 'Let’s set up your plan. How much could you set aside each month?'
-  : 'Hi! I’m your Raiffeisen investment coach. In 2 minutes I’ll show what your cash is doing and what it could do instead. How much could you set aside each month?',
-  [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`, label: `${fmt(a)} lei` })), { slider: { min: 100, max: 2000, step: 50, value: journey.coach.profile.monthly || 500 } })]);
+  ? copy(journey,"legacyAskAmountApp")
+  : copy(journey,"legacyGreeting"),
+  [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`, label: copy(journey,"legacyAmountLabel",{v0:fmt(a,journey)}) })), { slider: { min: 100, max: 2000, step: 50, value: journey.coach.profile.monthly || 500 } })]);
 
-const askWorry = (journey) => say(journey, 'What worries you most about investing?', [chips('worry', [
-  { id: 'fear_loss', label: 'Fear of losing my money' },
-  { id: 'withdraw', label: 'I want to withdraw anytime' },
-  { id: 'understand', label: 'I don’t understand how it works' },
-  { id: 'other', label: 'Nothing in particular' },
+const askWorry = (journey) => say(journey, copy(journey,"legacyAskWorry"), [chips('worry', [
+  { id: 'fear_loss', label: copy(journey,"legacyWorryLoss") },
+  { id: 'withdraw', label: copy(journey,"legacyWorryAccess") },
+  { id: 'understand', label: copy(journey,"legacyWorryUnderstand") },
+  { id: 'other', label: copy(journey,"legacyWorryNone") },
 ])]);
 
-const askYears = (journey) => say(journey, 'And for how long could you leave it invested?', [chips('years', [
-  { id: 'y3', label: '3 years' }, { id: 'y5', label: '5 years' }, { id: 'y10', label: '10 years' },
+const askYears = (journey) => say(journey, copy(journey,"legacyAskYears"), [chips('years', [
+  { id: 'y3', label: copy(journey,"legacyYears3") }, { id: 'y5', label: copy(journey,"legacyYears5") }, { id: 'y10', label: copy(journey,"legacyYears10") },
 ])]);
 
 const askRisk = (journey) => say(journey,
-  'One quick check so I only show what suits you: if your investment fell 15% in a month, what would you most likely do?',
+  copy(journey,"legacyAskRisk"),
   [chips('risk', [
-    { id: 'r_low', label: 'Sell to stop the losses' },
-    { id: 'r_medium', label: 'Wait for it to recover' },
-    { id: 'r_high', label: 'Invest more while it’s cheap' },
+    { id: 'r_low', label: copy(journey,"legacyRiskLow") },
+    { id: 'r_medium', label: copy(journey,"legacyRiskMedium") },
+    { id: 'r_high', label: copy(journey,"legacyRiskHigh") },
   ])]);
 
 function simMessage(journey, lead) {
@@ -61,60 +63,60 @@ function simMessage(journey, lead) {
   const sim = engine.simulate({ monthly: p.monthly, years: p.years });
   analytics.track(journey._store, journey, 'simulation_viewed');
   return say(journey,
-    `${lead} Over ${sim.years} years, ${fmt(sim.monthly)} lei a month could grow to ${fmt(sim.fund)} lei. Kept as cash, the same ${fmt(sim.contributed)} lei would only be worth ${fmt(sim.cashReal)} lei in today’s money. That’s ${fmt(sim.advantage)} lei better off.`,
-    [{ type: 'sim', sim, disclaimer: DISCLAIMER }]);
+    copy(journey,"legacySimulation",{v0:lead,v1:sim.years,v2:fmt(sim.monthly,journey),v3:fmt(sim.fund,journey),v4:fmt(sim.contributed,journey),v5:fmt(sim.cashReal,journey),v6:fmt(sim.advantage,journey)}),
+    [{ type: 'sim', sim, disclaimer: copy(journey,"legacyDisclaimer") }]);
 }
 
 function showOpen(journey) {
-  say(journey, 'Anything you want to ask? Tap a question, type your own, or move the slider to try another amount.', [faqChips()]);
-  say(journey, 'Ready to try it for real? New to Raiffeisen? Open a free account in about 3 minutes. Already a client? Log in and I’ll keep everything we talked about.',
-    [{ type: 'cta', options: [{ id: 'new', label: 'Open a free account' }, { id: 'existing', label: 'I’m already a client' }] }]);
+  say(journey, copy(journey,"legacyAskMore"), [faqChips(journey)]);
+  say(journey, copy(journey,"legacyContinue"),
+    [{ type: 'cta', options: [{ id: 'new', label: copy(journey,"legacyOpen") }, { id: 'existing', label: copy(journey,"legacyExisting") }] }]);
 }
 
 // ---------- knowledge ----------
 function defaults(p) { return { monthly: p.monthly || 500, years: p.years || 5 }; }
 
 const FAQ = {
-  market_drop(p) {
+  market_drop(p,journey) {
     const { monthly, years } = defaults(p);
     const sim = engine.simulate({ monthly, years });
     const bad = engine.stressTest({ monthly, years, drop: 0.2 });
-    return `Markets do fall, sometimes sharply. Imagine the worst timing: the fund loses 20% right at the end of your ${years} years. With ${fmt(monthly)} lei a month it would end near ${fmt(bad.fund)} lei in this simulation instead of ${fmt(sim.fund)} lei, while cash would be worth ${fmt(sim.cashReal)} lei. Nothing is guaranteed though: in a long bad stretch you could end with less than the ${fmt(sim.contributed)} lei you paid in. That’s why the money is spread across many markets, and why you should only invest what you won’t need soon.`;
+    return copy(journey,"legacyMarketDrop",{v0:years,v1:fmt(monthly,journey),v2:fmt(bad.fund,journey),v3:fmt(sim.fund,journey),v4:fmt(sim.cashReal,journey),v5:fmt(sim.contributed,journey)});
   },
-  withdraw() {
+  withdraw(profile,journey) {
     const f = products.byId('diversified-fund');
-    return `With the Diversified Fund, yes: you can sell your units any day and the money reaches your account in about ${f.settlementDays} working days (demo value, confirmed when you activate). A term deposit and the voluntary pension are built to stay put, so I’ll point that out before you choose them.`;
+    return copy(journey,"legacyWithdraw",{v0:f.settlementDays});
   },
-  fees() {
+  fees(profile,journey) {
     const f = products.byId('diversified-fund');
-    return `In this demo the Diversified Fund has no entry fee and about ${f.annualFeePct}% a year in running costs. These are demo values. You’ll see the confirmed fees on the activation screen before you agree to anything.`;
+    return copy(journey,"legacyFees",{v0:f.annualFeePct.toLocaleString(journey?.language==='ro'?'ro-RO':'en-US')});
   },
-  how_fund() {
-    return 'A fund pools money from many people. A professional team spreads it across lots of companies and bonds, so you own a small slice of everything instead of betting on one thing. You can start with as little as 100 lei a month and see your balance in the app at any time.';
+  how_fund(profile,journey) {
+    return copy(journey,"legacyHowFund");
   },
-  min() { return 'You can start from 100 lei a month, and change or stop the plan whenever you like.'; },
-  inflation() {
+  min(profile,journey) { return copy(journey,"legacyMinimum"); },
+  inflation(profile,journey) {
     const pts = engine.cashShrink(10000, 5);
-    return `Prices rise about 5.5% a year in this simulation, so cash buys less every year: 10,000 lei today buys what ${fmt(pts[5].value)} lei would in 5 years.`;
+    return copy(journey,"legacyInflation",{v0:fmt(pts[5].value,journey)});
   },
-  tax() {
+  tax(profile,journey) {
     const p = products.byId('voluntary-pension');
-    return `${p.name} is the long-term option and its contributions are tax-deductible. Tax rules depend on your situation, so check the details with an adviser before choosing it.`;
+    return copy(journey,"legacyTax",{v0:copy(journey,"product_"+p.id)});
   },
 };
 
 const INTENTS = [
-  ['human', /\b(human|adviser|advisor|agent|person|someone|call me|talk to|complain)/i],
-  ['withdraw', /withdraw|take (it |my money )?out|access|liquid|locked|lock |anytime|redeem|sell my/i],
-  ['fees', /\b(fee|fees|cost|costs|commission|charge|charges|price)\b/i],
+  ['human', /consilier|persoana|suna-ma|\b(human|adviser|advisor|agent|person|someone|call me|talk to|complain)/i],
+  ['withdraw', /retrag|lichid|withdraw|take (it |my money )?out|access|liquid|locked|lock |anytime|redeem|sell my/i],
+  ['fees', /comisio|costuri|\b(fee|fees|cost|costs|commission|charge|charges|price)\b/i],
   ['product:voluntary-pension', /pension/i],
   ['product:term-deposit', /deposit/i],
   ['product:bond-fund', /bond/i],
   ['product:stocks-etfs', /stock|etf|shares/i],
-  ['how_fund', /how.*(fund|work|invest)|what.*(fund|etf)|explain|understand|stock market|jargon/i],
-  ['market_drop', /drop|crash|fall|lose|loss|down|market|risk|afraid|scared|safe|guarantee|worst/i],
+  ['how_fund', /cum.*(fond|invest)|explica|inteleg|how.*(fund|work|invest)|what.*(fund|etf)|explain|understand|stock market|jargon/i],
+  ['market_drop', /scade|pierder|risc|teama|drop|crash|fall|lose|loss|down|market|risk|afraid|scared|safe|guarantee|worst/i],
   ['min', /minimum|least|smallest|start with|how little/i],
-  ['inflation', /inflation|prices|cash|shrink|worth/i],
+  ['inflation', /inflatie|numerar|preturi|inflation|prices|cash|shrink|worth/i],
   ['tax', /\btax/i],
 ];
 
@@ -123,9 +125,9 @@ function matchIntent(text) {
   return hit ? hit[0] : null;
 }
 
-function productAnswer(id) {
+function productAnswer(id,journey) {
   const p = products.byId(id);
-  return `${p.name}: ${p.blurb} It’s ${p.riskLabel}${p.redeemable ? ' and you can withdraw when you need to' : ' and designed to stay invested for the agreed period'}.`;
+  return copy(journey,"legacyProduct",{v0:copy(journey,"product_"+p.id),v1:copy(journey,"blurb_"+p.id),v2:copy(journey,"riskLabel_"+p.risk),v3:p.redeemable ? copy(journey,"legacyRedeemable") : copy(journey,"legacyLocked")});
 }
 
 function facts(journey) {
@@ -143,23 +145,23 @@ async function answerFree(journey, text, ctx) {
   const intent = matchIntent(text);
   if (intent) return answerIntent(journey, intent, ctx);
   const reply = await llm.ask({ text, facts: facts(journey), fetchImpl: ctx.fetchImpl, env: ctx.env });
-  if (reply) { say(journey, reply, [faqChips()]); return; }
-  say(journey, 'I can help with how a fund works, what happens if the market drops, withdrawing your money, fees and which product could suit you. What would you like to know?', [faqChips()]);
+  if (reply) { say(journey, reply, [faqChips(journey)]); return; }
+  say(journey, copy(journey,"legacyHelp"), [faqChips(journey)]);
 }
 
 function answerIntent(journey, intent, ctx) {
   const p = journey.coach.profile;
   if (intent === 'human') return handoff(journey, ctx);
-  if (intent.startsWith('product:')) return say(journey, productAnswer(intent.slice(8)), [faqChips()]);
-  say(journey, FAQ[intent](p), [faqChips()]);
+  if (intent.startsWith('product:')) return say(journey, productAnswer(intent.slice(8),journey), [faqChips(journey)]);
+  say(journey, FAQ[intent](p,journey), [faqChips(journey)]);
 }
 
 function handoff(journey, ctx) {
   if (ctx.user) {
     const h = ctx.createHandoff({ phone: ctx.user.phone, name: `${ctx.user.firstName} ${ctx.user.lastName}` });
-    return say(journey, `Done. An adviser will call you on ${ctx.user.phone}. They’ll see this whole conversation, so you won’t need to repeat anything. (Request ${h.id.slice(0, 8)})`);
+    return say(journey, copy(journey,"legacyHandoffDone",{v0:ctx.user.phone,v1:h.id.slice(0, 8)}));
   }
-  say(journey, 'Of course. Leave your phone number and a Raiffeisen adviser will call you. They’ll see this conversation, so you won’t need to repeat anything.', [{ type: 'handoff_form' }]);
+  say(journey, copy(journey,"legacyHandoffAsk"), [{ type: 'handoff_form' }]);
 }
 
 // ---------- lifecycle ----------
@@ -185,11 +187,11 @@ function enterApp(store, journey, user) {
   c.stage = 'app';
   const p = c.profile;
   if (p.monthly && p.years) {
-    say(journey, `You’re in, ${user.firstName}! I kept everything: ${fmt(p.monthly)} lei/month, ${WORRY_LABEL[p.worry] || 'your choices'}, ${p.years} years.`);
+    say(journey, copy(journey,"legacyCarryOver",{v0:user.firstName,v1:fmt(p.monthly,journey),v2:copy(journey,WORRY_LABEL[p.worry] || 'legacyChoices'),v3:p.years}));
     c.step = 'ask_risk';
     askRisk(journey);
   } else {
-    say(journey, `Welcome, ${user.firstName}! Let’s set up your first investment.`);
+    say(journey, copy(journey,"legacyWelcome",{v0:user.firstName}));
     c.step = p.monthly ? 'ask_years' : 'ask_amount';
     p.monthly ? askYears(journey) : askAmount(journey);
   }
@@ -201,26 +203,26 @@ function recommend(journey, ctx) {
   const rec = products.recommend(p);
   const allowed = products.allowedFor(p.risk).map((x) => x.id);
   c.step = 'recommend';
-  say(journey, `I’d start with ${rec.tag.toLowerCase()}: ${fmt(p.monthly)} lei a month into the ${rec.name}, ${rec.riskLabel}${rec.redeemable ? ', withdraw anytime' : ''}. Want to hear about the other options?`, [{
+  say(journey, copy(journey,"legacyRecommend",{v0:copy(journey,"tag_"+rec.id).toLowerCase(),v1:fmt(p.monthly,journey),v2:copy(journey,"product_"+rec.id),v3:copy(journey,"riskLabel_"+rec.risk),v4:rec.redeemable ? copy(journey,"legacyAccessSuffix") : ''}), [{
     type: 'products', monthly: p.monthly, recommended: rec.id,
     items: products.PRODUCTS.map((x) => ({
-      id: x.id, name: x.name, tag: x.tag, riskLabel: x.riskLabel, blurb: x.blurb, allowed: allowed.includes(x.id),
-      reason: allowed.includes(x.id) ? null : `Above the comfort level you chose (${x.riskLabel})`,
+      id: x.id, name: copy(journey,"product_"+x.id), tag: copy(journey,"tag_"+x.id), riskLabel: copy(journey,"riskLabel_"+x.risk), blurb: copy(journey,"blurb_"+x.id), allowed: allowed.includes(x.id),
+      reason: allowed.includes(x.id) ? null : copy(journey,"legacyAboveRisk",{v0:copy(journey,"riskLabel_"+x.risk)}),
     })),
-    disclaimer: DISCLAIMER,
+    disclaimer: copy(journey,"legacyDisclaimer"),
   }]);
 }
 
 function onActivated(store, journey, plan) {
   const product = products.byId(plan.productId);
-  say(journey, `Done ✓ Your ${fmt(plan.monthly)} lei a month into the ${product.name} starts on ${plan.nextDebit}. I’ll check in every month.`, [faqChips()]);
+  say(journey, copy(journey,"legacyActivated",{v0:fmt(plan.monthly,journey),v1:copy(journey,"product_"+product.id),v2:plan.nextDebit}), [faqChips(journey)]);
   journey.coach.step = 'active';
   store.save();
 }
 
 function onDebit(store, journey, plan, account) {
   const product = products.byId(plan.productId);
-  say(journey, `Your ${fmt(plan.monthly)} lei went into the ${product.name}. Invested so far: ${fmt(plan.invested)} lei across ${plan.debits} ${plan.debits === 1 ? 'month' : 'months'}. Next debit: ${plan.nextDebit}. Balance: ${fmt(account.balance)} lei.`);
+  say(journey, copy(journey,"legacyDebited",{v0:fmt(plan.monthly,journey),v1:copy(journey,"product_"+product.id),v2:fmt(plan.invested,journey),v3:plan.debits,v4:copy(journey,plan.debits === 1 ? 'legacyMonth' : 'legacyMonths'),v5:plan.nextDebit,v6:fmt(account.balance,journey)}));
   store.save();
 }
 
@@ -255,22 +257,22 @@ async function handle(store, journey, input, ctx = {}) {
   } else if (input.type === 'amount') {
     const v = Number(input.value);
     if (!['ask_amount', 'open'].includes(c.step)) return { messages: [] };
-    if (!started) { userSaid(journey, `${fmt(v)} lei a month`); track('chat_started'); } else if (c.step === 'open') userSaid(journey, `${fmt(v)} lei a month`);
+    if (!started) { userSaid(journey, copy(journey,"legacyAmountMessage",{v0:fmt(v,journey)})); track('chat_started'); } else if (c.step === 'open') userSaid(journey, copy(journey,"legacyAmountMessage",{v0:fmt(v,journey)}));
     return amountStep(store, journey, v, before);
   } else if (input.type === 'choice') {
     const id = String(input.id || '');
     if (!started) track('chat_started');
     userSaid(journey, labelOf(id));
-    if (id.startsWith('faq_')) { const k = id.slice(4); if (FAQ[k]) say(journey, FAQ[k](p), [faqChips()]); }
+    if (id.startsWith('faq_')) { const k = id.slice(4); if (FAQ[k]) say(journey, FAQ[k](p,journey), [faqChips(journey)]); }
     else if (id === 'human') handoff(journey, ctx);
     else if (/^a\d+$/.test(id) && ['ask_amount', 'open'].includes(c.step)) return amountStep(store, journey, Number(id.slice(1)), before);
     else if (c.step === 'ask_worry' && ['fear_loss', 'withdraw', 'understand', 'other'].includes(id)) {
       p.worry = id;
       const replies = {
-        fear_loss: 'Fair. I’ll keep it balanced: a diversified fund spreads your money across many markets, so one bad company can’t sink it. It can still lose value in a bad year, and I’ll show you what that looks like.',
-        withdraw: `Good thing to check. With a fund you can sell any day and the money arrives in about ${products.byId('diversified-fund').settlementDays} working days (demo value). I’ll tell you which products are not like that.`,
-        understand: FAQ.how_fund(),
-        other: 'Great, then let’s keep it simple.',
+        fear_loss: copy(journey,"legacyLossReply"),
+        withdraw: copy(journey,"legacyAccessReply",{v0:products.byId('diversified-fund').settlementDays}),
+        understand: FAQ.how_fund(p,journey),
+        other: copy(journey,"legacySimpleReply"),
       };
       say(journey, replies[id]);
       c.step = 'ask_years';
@@ -278,13 +280,13 @@ async function handle(store, journey, input, ctx = {}) {
     } else if (/^y(3|5|10)$/.test(id) && ['ask_years', 'open'].includes(c.step)) {
       p.years = Number(id.slice(1));
       if (c.stage === 'app') { c.step = 'ask_risk'; askRisk(journey); }
-      else if (c.step === 'ask_years') { c.step = 'open'; track('questions_answered'); simMessage(journey, 'Here’s your picture.'); showOpen(journey); }
-      else simMessage(journey, 'Updated.');
+      else if (c.step === 'ask_years') { c.step = 'open'; track('questions_answered'); simMessage(journey, copy(journey,"legacyPicture")); showOpen(journey); }
+      else simMessage(journey, copy(journey,"legacyUpdated"));
     } else if (c.step === 'ask_risk' && RISK_OF[id]) {
       p.risk = RISK_OF[id];
       recommend(journey, ctx);
     } else if (id === 'show_all' && c.stage === 'app') recommend(journey, ctx);
-    else say(journey, 'Let me know how I can help.', [faqChips()]);
+    else say(journey, copy(journey,"legacyHowHelp"), [faqChips(journey)]);
   } else if (input.type === 'state') {
     return { messages: [] };
   }
@@ -295,10 +297,10 @@ async function handle(store, journey, input, ctx = {}) {
 function amountStep(store, journey, v, before) {
   const c = journey.coach, p = c.profile;
   if (!Number.isFinite(v) || v < engine.LIMITS.minMonthly || v > engine.LIMITS.maxMonthly) {
-    say(journey, `I can simulate between ${engine.LIMITS.minMonthly} and ${fmt(engine.LIMITS.maxMonthly)} lei a month. What amount works for you?`, [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`, label: `${fmt(a)} lei` })), { slider: { min: 100, max: 2000, step: 50, value: 500 } })]);
+    say(journey, copy(journey,"legacyAmountLimits",{v0:engine.LIMITS.minMonthly,v1:fmt(engine.LIMITS.maxMonthly,journey)}), [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`, label: copy(journey,"legacyAmountLabel",{v0:fmt(a,journey)}) })), { slider: { min: 100, max: 2000, step: 50, value: 500 } })]);
   } else {
     p.monthly = Math.round(v);
-    if (c.step === 'open') simMessage(journey, 'Updated.');
+    if (c.step === 'open') simMessage(journey, copy(journey,"legacyUpdated"));
     else if (c.stage === 'app') { c.step = p.years ? 'ask_risk' : 'ask_years'; p.years ? askRisk(journey) : askYears(journey); }
     else { c.step = 'ask_worry'; askWorry(journey); }
   }
