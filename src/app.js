@@ -8,6 +8,9 @@ const products = require('./products');
 const analytics = require('./analytics');
 const bank = require('./bank');
 const coach = require('./coach');
+const agent = require('./agent/agent');
+const { language } = require('./i18n');
+const { select } = require('./agent/provider');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -16,11 +19,12 @@ const PAGES = { '/': 'index.html', '/ad': 'ad.html', '/admin': 'admin.html' };
 const COOKIE = 'sid';
 const MAX_BODY = 20 * 1024;
 
-function createApp({ store, env = process.env, fetchImpl }) {
+function createApp({ store, env = process.env, fetchImpl, provider }) {
   const demo = env.DEMO_MODE !== '0';
   bank.seedClients(store);
   require('./data/personas').seed(store);
   const hits = new Map();
+  const busy = new Set();
 
   const limited = (ip, group, max) => {
     const now = Date.now(), key = ip + group;
@@ -63,7 +67,7 @@ function createApp({ store, env = process.env, fetchImpl }) {
   const snapshot = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
     return { journeyId: j.id, source: j.source, stage: j.coach ? j.coach.stage : 'web', step: j.coach ? j.coach.step : 'ask_amount',
-      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user) };
+      profile: j.coach ? j.coach.profile : {}, messages: j.messages || [], user: publicUser(user), language: j.language || 'en', ...(j.lastAgent || {}) };
   };
   const ctxFor = (j) => {
     const user = j.userId ? store.db.users[j.userId] : null;
@@ -107,19 +111,24 @@ function createApp({ store, env = process.env, fetchImpl }) {
   const routes = [];
   const route = (method, pattern, opts, handler) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), opts, handler });
 
-  route('GET', '/api/config', {}, () => ({ demoMode: demo, llm: Boolean(env.ANTHROPIC_API_KEY), limits: engine.LIMITS, assumptions: engine.DEFAULTS }));
+  route('GET', '/api/config', {}, () => ({ demoMode: demo, llm: Boolean(select({env,fetchImpl})), synthetic: true, limits: engine.LIMITS, assumptions: engine.DEFAULTS }));
   route('GET', '/api/simulate', {}, ({ query }) => engine.simulate({ monthly: Number(query.get('monthly')), years: Number(query.get('years') || 5) }));
   route('GET', '/api/shrink', {}, ({ query }) => ({ amount: 10000, points: engine.cashShrink(10000, Number(query.get('years') || 5)), inflation: engine.DEFAULTS.inflation }));
 
   route('POST', '/api/journey', {}, ({ body, j, res, req }) => {
     if (!j) {
       j = newJourney({ source: clean(body.source), campaign: clean(body.campaign) });
+      j.language = language(body.language || req.headers['accept-language']);
       res.setHeader('set-cookie', `${COOKIE}=${j.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure(req) ? '; Secure' : ''}`);
     }
     coach.start(store, j);
     return snapshot(j);
   });
   route('GET', '/api/journey', { journey: true }, ({ j }) => snapshot(j));
+  route('POST', '/api/language', { journey: true }, ({ j, body }) => {
+    if (!['en','ro'].includes(body.language)) throw new bank.BankError('Unsupported language.');
+    j.language = body.language; store.save(); return snapshot(j);
+  });
 
   route('GET', '/api/personas', {}, () => {
     if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
@@ -129,17 +138,39 @@ function createApp({ store, env = process.env, fetchImpl }) {
     if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
     const user = store.db.users['persona-' + body.persona];
     if (!user?.personaId) throw new bank.BankError('Unknown demo persona.', 404);
-    j.userId = user.id; j.coach = null; j.messages = []; j.msgSeq = 0; j.memory = {};
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    j.userId = user.id; j.coach = null; j.messages = []; j.msgSeq = 0; j.memory = {}; j.lastAgent = null;
     coach.start(store, j);
     completeAuth(j, user, 'existing');
     return { ...me(user), ...snapshot(j) };
   });
 
   route('POST', '/api/chat', { journey: true, rate: ['chat', 60] }, async ({ body, j }) => {
+    if ((body.type === 'text' && (store.db.customers[j.userId] || select({env,fetchImpl}))) || (store.db.customers[j.userId] && ['r_low','r_medium','r_high'].includes(body.id))) return agentTurn(j, body.type === 'choice' ? {text:body.id.slice(2)} : body);
     const input = ['choice', 'amount', 'text'].includes(body.type) ? body : { type: 'state' };
     const r = await coach.handle(store, j, input, ctxFor(j));
     return { ...snapshot(j), messages: r.messages, history: j.messages };
   });
+  async function agentTurn(j, body) {
+    if (typeof body.text !== 'string' || !body.text.trim() || body.text.length > 500) throw new bank.BankError('Enter a message of up to 500 characters.');
+    if (limited(j.id, 'agent', 20)) throw new bank.BankError('Too many agent requests. Please wait a minute.', 429);
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    busy.add(j.id);
+    try {
+      const result = await agent.run({store,journey:j,text:body.text,env,fetchImpl,provider});
+      const at = new Date().toISOString();
+      j.messages.push({id:++j.msgSeq,role:'user',text:require('./agent/safety').clean(body.text),at});
+      const message = {id:++j.msgSeq,role:'coach',text:result.text,widgets:result.cards,at};
+      j.messages.push(message);
+      const {text,...meta} = result;
+      j.lastAgent = meta;
+      analytics.track(store,j,'chat_started');
+      if (result.cards.some(card=>card.type==='compare')) analytics.track(store,j,'questions_answered');
+      store.save();
+      return {...snapshot(j),messages:[message],history:j.messages,...meta};
+    } finally { busy.delete(j.id); }
+  }
+  route('POST', '/api/agent', { journey: true, rate: ['agent-ip', 60] }, ({body,j}) => agentTurn(j,body));
 
   route('POST', '/api/handoff', { journey: true, rate: ['handoff', 5] }, ({ body, j }) => {
     const user = j.userId && store.db.users[j.userId];
@@ -193,8 +224,15 @@ function createApp({ store, env = process.env, fetchImpl }) {
     return me(user);
   });
   route('POST', '/api/plans', { journey: true, rate: ['plans', 20] }, ({ body, j }) => {
+    requireUser(j);
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    const proposal = bank.proposePlan(store, j, { productId: body.productId, monthly: body.monthly });
+    return {proposal,ui:{type:'plan_proposal',proposal}};
+  });
+  route('POST', '/api/proposals/:id/confirm', { journey: true, rate: ['confirm', 20] }, ({ body, j, params }) => {
     const user = requireUser(j);
-    const plan = bank.activatePlan(store, user, { productId: body.productId, monthly: body.monthly, risk: j.coach && j.coach.profile.risk });
+    if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
+    const plan = bank.confirmProposal(store, j, params.id, body.confirmed);
     analytics.track(store, j, 'plan_activated', { productId: plan.productId });
     const before = j.messages.length;
     coach.onActivated(store, j, plan);

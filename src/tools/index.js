@@ -56,7 +56,7 @@ function createTools({ store, journey }) {
     get_customer_profile() { const { customer } = state(); const { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf } = customer; return { firstName, ageBand, segment, incomePattern, goal, horizonYears, synthetic, asOf }; },
     get_spending_summary({ months = 12 }) { const data = spending(state().customer, months); return { ...data, ui: { type: 'budget', ...data } }; },
     find_savings_capacity() { const data = state().cap; return { ...data, ui: { type: 'capacity', ...data } }; },
-    compare_products(input) { const { customer, cap } = state(); const data = compare(customer, input, cap); return { products: data, ui: { type: 'compare', products: data } }; },
+    compare_products(input) { const { customer, cap } = state(); const actualRisk=journey.coach?.profile.risk; const risk=actualRisk || input.riskComfort || 'low'; const data = compare(customer, {...input,riskComfort:risk}, cap); return { products: data, suitabilityAnswered:Boolean(actualRisk), ui: { type: 'compare', products: data } }; },
     simulate({ monthly, years, productId = 'diversified-fund' }) {
       const product = products.byId(productId);
       if (!product || product.expectedReturn === null) throw new bank.BankError('No illustrative return assumption for that product.');
@@ -65,10 +65,13 @@ function createTools({ store, journey }) {
       return { ...sim, stressFund: stress.fund, illustrative: true, ui: { type: 'simulation', sim, stressFund: stress.fund, productId, illustrative: true } };
     },
     what_if({ change }) {
+      if (JSON.stringify(change) !== JSON.stringify(journey.pendingChange)) throw new bank.BankError('A what-if change must come from the current customer message.', 409);
       const { customer, account, cap: before } = state(); const after = capacity(customer, account.balance, change);
-      journey.memory ||= {}; journey.memory.horizonYears = change.horizonYears || journey.memory.horizonYears || customer.horizonYears;
+      journey.memory ||= {}; const previousHorizonYears=journey.memory.horizonYears || customer.horizonYears;
+      journey.memory.horizonYears = change.horizonYears || previousHorizonYears;
+      journey.memory.changes={...(journey.memory.changes || {}),...change};
       journey.proposalVersion = (journey.proposalVersion || 0) + 1;
-      const data = { before, after, change, horizonYears: journey.memory.horizonYears, diff: { idleCash: after.idleCash - before.idleCash, safeMonthly: after.safeMonthly - before.safeMonthly }, hypothetical: true };
+      const data = { before, after, change, previousHorizonYears, horizonYears: journey.memory.horizonYears, diff: { idleCash: after.idleCash - before.idleCash, safeMonthly: after.safeMonthly - before.safeMonthly }, hypothetical: true };
       return { ...data, ui: { type: 'what_if', ...data } };
     },
     set_risk_profile({ answer }) {

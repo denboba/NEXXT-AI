@@ -52,6 +52,7 @@ test('risk cannot be invented by a model, proposals never activate and cannot ex
 });
 test('what-if explains a hypothetical diff and invalidates old proposals without moving cash', () => {
   const { tools, journey, store } = setup(); const before = store.db.accounts['account-persona-ioana'].balance;
+  journey.pendingChange={bonus:1000,horizonYears:2};
   const result=tools.execute('what_if',{change:{bonus:1000,horizonYears:2}});
   assert.equal(result.diff.idleCash,1000); assert.equal(result.horizonYears,2); assert.equal(journey.proposalVersion,1);
   assert.equal(store.db.accounts['account-persona-ioana'].balance,before);

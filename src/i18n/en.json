@@ -1,0 +1,19 @@
+{
+  "needHistory": "Select a synthetic demo persona to analyze spending, or use the existing sign-up and login flow.",
+  "handoffDone": "An adviser request is recorded with this conversation. No money has moved.",
+  "unavailable": "The analysis is unavailable. Your money has not moved. Please try again or ask an adviser.",
+  "bufferFirst": "Do not invest yet. Build your emergency buffer first: save {amount} lei monthly and consider trimming StreamBox and GamePass Demo subscriptions. At that pace the buffer is ready in about {months} months.",
+  "businessPlan": "Protect the {payroll} lei payroll reserve and seasonal cash-flow lows. Compare a business deposit ladder with a liquid reserve, staggering maturities around payroll.",
+  "irregularPlan": "Reserve {tax} lei for the upcoming tax bill and keep a {months}-month essentials buffer. With irregular income, consider liquid products and only a small {amount} lei monthly fund plan. These are demo figures, not tax advice.",
+  "healthyPlan": "Keep a {months}-month essentials buffer accessible; a deposit may suit the portion you can lock. Your safe monthly amount is {amount} lei. Compare a diversified fund for your longer goal, accepting that its value can fall.",
+  "changeExplained": "Re-planned for a {years}-year horizon; the new safe monthly amount is {amount} lei. A shorter goal favors accessible savings or a deposit over a market fund. Hypothetical bonuses are not spent and old proposals must be replaced.",
+  "confirmRequired": "This is a proposal only. Review the card and press Confirm to activate it; a chat message cannot authorize it. Simulation only; returns are not guaranteed.",
+  "proposalBlocked": "A safety check blocked that proposal. Review your buffer, goal and risk answer with an adviser.",
+  "riskQuestion": "If the investment fell, would you sell (low risk), wait (medium risk), or invest more (high risk)? Reply low, medium or high.",
+  "refusal_injection": "I cannot follow instructions to bypass safety rules or reveal private information. I can help you plan with your own financial context.",
+  "refusal_cross_customer": "I can only use your own customer context. I cannot access or disclose another customer’s data.",
+  "refusal_guarantee": "Returns are not guaranteed. I can compare illustrative scenarios, risk and access to your savings.",
+  "refusal_protected_money": "Keep emergency money and upcoming bills protected. I cannot recommend investing everything or bypassing your buffer.",
+  "refusal_abuse": "Let’s keep this respectful. I can help with your budget, savings and financial products.",
+  "refusal_off_topic": "I can help with budgeting, savings and financial decisions. Let’s return to your financial goals."
+}

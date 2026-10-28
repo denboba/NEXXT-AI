@@ -180,7 +180,7 @@ function validatePlan(store, user, { productId, monthly, risk }) {
   return { product, amount, acct };
 }
 
-function proposePlan(store, journey, { productId, monthly }) {
+function checkProposal(store, journey, { productId, monthly }) {
   const user = store.db.users[journey.userId];
   if (!user) throw new BankError('Please log in or open an account first.', 401);
   const risk = journey.coach?.profile.risk;
@@ -188,15 +188,37 @@ function proposePlan(store, journey, { productId, monthly }) {
   const customer = store.db.customers[user.id];
   if (!customer) throw new BankError('Spending history is required before proposing a plan.', 409);
   if (product.segment !== customer.segment) throw new BankError('This product is for a different customer segment.', 403);
-  const cap = require('./tools/finance').capacity(customer, acct.balance);
+  const cap = require('./tools/finance').capacity(customer, acct.balance, { rentIncrease: journey.memory?.changes?.rentIncrease || 0 });
   const microSaving = product.id === 'buffer-savings' && amount === cap.microSaving;
   if (!cap.bufferReady && !microSaving) throw new BankError('Build your emergency buffer before investing.', 409);
   if (amount > cap.safeMonthly && !microSaving) throw new BankError('That amount exceeds the safe monthly capacity.', 409);
   const horizon = journey.memory?.horizonYears || customer.horizonYears;
   if (horizon < product.minHorizonYears) throw new BankError('This product does not fit your goal horizon.', 409);
+  return { user, risk, amount };
+}
+
+function proposePlan(store, journey, { productId, monthly }) {
+  const { user, risk, amount } = checkProposal(store, journey, { productId, monthly });
+  journey.proposalVersion = (journey.proposalVersion || 0) + 1;
   const proposal = Object.freeze({ id: uid(), userId: user.id, journeyId: journey.id, productId, monthly: amount, risk, version: journey.proposalVersion || 0, expires: Date.now() + 10 * 60 * 1000, createdAt: new Date().toISOString() });
   store.db.proposals[proposal.id] = proposal; store.save();
   return proposal;
+}
+
+function confirmProposal(store, journey, id, confirmed) {
+  if (confirmed !== true) throw new BankError('Explicit confirmation is required.', 400);
+  const proposal = store.db.proposals[id];
+  if (!proposal || proposal.userId !== journey.userId || proposal.journeyId !== journey.id) throw new BankError('Proposal not found.', 404);
+  const existing = Object.values(store.db.plans).find(plan => plan.proposalId === id);
+  if (existing) return existing;
+  if (Date.now() >= proposal.expires) throw new BankError('Proposal expired. Ask for an updated plan.', 410);
+  if (proposal.version !== (journey.proposalVersion || 0)) throw new BankError('Your goal or risk answer changed. Review a new proposal.', 409);
+  const { user, risk } = checkProposal(store, journey, proposal);
+  if (risk !== proposal.risk) throw new BankError('Your risk answer changed. Review a new proposal.', 409);
+  const plan = activatePlan(store, user, { ...proposal, risk });
+  plan.proposalId = proposal.id;
+  store.save();
+  return plan;
 }
 
 function activatePlan(store, user, { productId, monthly, risk }) {
@@ -238,5 +260,5 @@ function portfolio(store, userId) {
 
 module.exports = {
   BankError, seedClients, accountOf, startOnboarding, submitId, submitSelfie, requestOtp, verifyOtp,
-  requestLogin, approveLogin, loginStatus, topUp, activatePlan, runDebit, portfolio, nextFifth, proposePlan, validatePlan,
+  requestLogin, approveLogin, loginStatus, topUp, runDebit, portfolio, nextFifth, proposePlan, validatePlan, confirmProposal,
 };
