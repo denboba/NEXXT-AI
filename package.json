@@ -1,0 +1,12 @@
+{
+  "name": "nexxt-ai-investment-coach",
+  "version": "1.0.0",
+  "description": "AI Investment Coach: from social ad to first investment in one conversation",
+  "private": true,
+  "type": "commonjs",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/*.test.js\""
+  }
+}
