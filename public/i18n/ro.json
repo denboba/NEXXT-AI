@@ -292,5 +292,9 @@
   "audit": "Jurnal de decizii · doar identificatori fictivi",
   "asOf": "Date sintetice valabile la",
   "superseded": "Expirată / înlocuită",
-  "unknownUsage": "necunoscut (utilizare incompletă raportată de furnizor)"
+  "unknownUsage": "necunoscut (utilizare incompletă raportată de furnizor)",
+  "resetDemo": "Resetează demo",
+  "resetWarning": "Resetezi toate cele patru profiluri fictive, planurile și conversațiile lor? Acțiunea afectează toți vizitatorii demo.",
+  "previousMonthly": "Suma lunară existentă",
+  "replacementOnly": "Această propunere modifică suma planului existent doar după confirmare. Confirmarea nu mută bani."
 }

@@ -137,6 +137,13 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     if (!['en','ro'].includes(body.language)) throw new bank.BankError('Unsupported language.');
     j.language = body.language; store.save(); return snapshot(j);
   });
+  route('POST', '/api/demo/reset', { journey: true, rate: ['demo-reset', 3] }, ({ j, res }) => {
+    if (!demo) throw new bank.BankError('Reset is available only in demo mode.', 403);
+    if (busy.size) throw new bank.BankError('Wait for active conversations to finish before resetting.', 409);
+    require('./data/reset').reset(store, j.id);
+    res.setHeader('set-cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+    return { reset: true };
+  });
 
   route('GET', '/api/personas', {}, () => {
     if (!demo) throw new bank.BankError('Persona switching is available only in demo mode.', 403);
@@ -246,7 +253,8 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   route('POST', '/api/proposals/:id/confirm', { journey: true, rate: ['confirm', 20] }, ({ body, j, params }) => {
     const user = requireUser(j);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
-    const alreadyConfirmed=Object.values(store.db.plans).some(plan=>plan.proposalId===params.id);
+    const alreadyConfirmed=Boolean(store.db.confirmations[params.id])
+      || Object.values(store.db.plans).some(plan=>plan.proposalId===params.id);
     const plan = bank.confirmProposal(store, j, params.id, body.confirmed);
     analytics.track(store, j, 'plan_activated', { productId: plan.productId });
     const before = j.messages.length;

@@ -292,5 +292,9 @@
   "audit": "Decision audit · synthetic persona IDs only",
   "asOf": "Synthetic data as of",
   "superseded": "Expired / replaced",
-  "unknownUsage": "unknown (provider usage incomplete)"
+  "unknownUsage": "unknown (provider usage incomplete)",
+  "resetDemo": "Reset demo",
+  "resetWarning": "Reset all four sample profiles, their plans and conversations? This affects all demo visitors.",
+  "previousMonthly": "Existing monthly amount",
+  "replacementOnly": "This updates the existing plan amount only after confirmation. No money moves on confirmation."
 }

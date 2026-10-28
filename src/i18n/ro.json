@@ -137,5 +137,6 @@
   "liquidity_days": "În câteva zile",
   "liquidity_locked": "Blocat până la scadență",
   "amountChangeExplained": "Suma lunară aleasă s-a schimbat de la {before} la {after} lei; capacitatea prudentă rămâne {amount} lei. Verifică noua propunere.",
-  "riskChangeExplained": "Răspunsul tău explicit despre risc s-a schimbat la {risk}; am comparat din nou produsele înainte de a înlocui propunerea."
+  "riskChangeExplained": "Răspunsul tău explicit despre risc s-a schimbat la {risk}; am comparat din nou produsele înainte de a înlocui propunerea.",
+  "activePlanAvailable": "Planul tău {product} este deja activ la {monthly} lei lunar. Poți pune întrebări sau cere altă sumă; modificarea necesită o nouă confirmare."
 }

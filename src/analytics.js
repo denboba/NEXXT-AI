@@ -51,21 +51,17 @@ function agentMetrics(store, {source} = {}) {
   for(const journey of journeys.filter(item=>item.messages?.some(message=>message.role==='user'))) {const day=journey.createdAt.slice(0,10);conversationsPerDay[day]=(conversationsPerDay[day] || 0)+1;}
   const proposals=Object.values(store.db.proposals).filter(proposal=>ids.has(proposal.journeyId));
   const proposalIds=new Set(proposals.map(proposal=>proposal.id));
+  const confirmed = Object.entries(store.db.confirmations).filter(([id]) => proposalIds.has(id));
   const activated=Object.values(store.db.plans).filter(plan=>proposalIds.has(plan.proposalId)).length;
   const costKnown=turns.every(turn=>turn.costUsd!==null);
   const totalCost=costKnown?turns.reduce((sum,turn)=>sum+turn.costUsd,0):null;
   const tools={},refusals={};
-  for(const entry of store.db.audit) {
-    // Audit contains no session ids or source details; source-filtered tool
-    // counts are computed from each conversation's trace history below.
-    if(!source && entry.tool) tools[entry.tool]=(tools[entry.tool] || 0)+1;
-  }
-  if(source) for(const turn of turns) for(const name of turn.tools || []) tools[name]=(tools[name] || 0)+1;
+  for(const turn of turns) for(const name of turn.tools || []) tools[name]=(tools[name] || 0)+1;
   for(const turn of turns) if(turn.refusalReason) refusals[turn.refusalReason]=(refusals[turn.refusalReason] || 0)+1;
   const rank=counts=>Object.entries(counts).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count);
   const modeSplit={agent:0,offline:0};
   for(const group of groups.values()) modeSplit[group.at(-1).mode]++;
-  return {conversations:groups.size,conversationsPerDay,modeSplit,modeSplitDefinition:'Most recent agent-endpoint turn per conversation; percentages sum to one.',answeredTurns:{agent:turns.filter(turn=>turn.mode==='agent').length,offline:turns.filter(turn=>turn.mode==='offline').length},averageToolCallsPerConversation:groups.size?turns.reduce((sum,turn)=>sum+turn.toolCalls,0)/groups.size:0,estimatedModelCostPerConversationUsd:groups.size && totalCost!==null?totalCost/groups.size:null,estimatedModelCostPerActivatedPlanUsd:activated && totalCost!==null?totalCost/activated:null,totalEstimatedModelCostUsd:totalCost,unpricedTurns:turns.filter(turn=>turn.costUsd===null).length,proposals:proposals.length,confirmedPlans:activated,proposalToConfirmationRate:proposals.length?activated/proposals.length:null,topTools:rank(tools),topRefusalReasons:rank(refusals),audit:source?[]:store.db.audit.slice(-100).reverse()};
+  return {conversations:groups.size,conversationsPerDay,modeSplit,modeSplitDefinition:'Most recent agent-endpoint turn per conversation; percentages sum to one.',answeredTurns:{agent:turns.filter(turn=>turn.mode==='agent').length,offline:turns.filter(turn=>turn.mode==='offline').length},averageToolCallsPerConversation:groups.size?turns.reduce((sum,turn)=>sum+turn.toolCalls,0)/groups.size:0,estimatedModelCostPerConversationUsd:groups.size && totalCost!==null?totalCost/groups.size:null,estimatedModelCostPerActivatedPlanUsd:activated && totalCost!==null?totalCost/activated:null,totalEstimatedModelCostUsd:totalCost,unpricedTurns:turns.filter(turn=>turn.costUsd===null).length,proposals:proposals.length,confirmedPlans:activated,proposalToConfirmationRate:proposals.length?(confirmed.length || activated)/proposals.length:null,topTools:rank(tools),topRefusalReasons:rank(refusals),audit:source?[]:store.db.audit.slice(-100).reverse()};
 }
 
 module.exports = { STAGES, track, funnel, agentMetrics };

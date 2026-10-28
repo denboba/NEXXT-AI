@@ -137,5 +137,6 @@
   "liquidity_days": "In days",
   "liquidity_locked": "Locked until maturity",
   "amountChangeExplained": "Your chosen monthly amount changed from {before} to {after} lei; the safe capacity remains {amount} lei. Review the replacement proposal.",
-  "riskChangeExplained": "Your explicit risk answer changed to {risk}; I compared the products again before replacing the proposal."
+  "riskChangeExplained": "Your explicit risk answer changed to {risk}; I compared the products again before replacing the proposal.",
+  "activePlanAvailable": "Your {product} plan is already active at {monthly} lei monthly. Ask about it or request a different monthly amount; an update still needs a fresh confirmation."
 }

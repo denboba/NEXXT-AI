@@ -452,6 +452,14 @@ function renderNav() {
     }},h('option',{value:''},t('choosePersona')),S.personas.map(persona=>h('option',{value:persona.id},t('persona_'+persona.id))));
     selector.value=S.snap.user?.personaId || '';
     nav.append(selector);
+    nav.append(h('button', { type: 'button', disabled: S.pending, onclick: async () => {
+      if (!confirm(t('resetWarning'))) return;
+      try {
+        await api('POST', '/api/demo/reset');
+        S.me = null; S.agent = { mode: 'offline', trace: [], usage: {} }; S.view = 'chat';
+        await boot();
+      } catch (error) { S.error = error.message; render(); }
+    } }, t('resetDemo')));
   }
   if (S.snap && S.snap.user) {
     nav.append(h('span', { class: 'chip-user' }, `${S.snap.user.firstName} ${S.snap.user.lastName}`),
@@ -518,7 +526,10 @@ function agentCard(card) {
   } else if(type==='plan_proposal') {
     const p=card.proposal,confirmed=S.me?.portfolio?.plans?.some(plan=>plan.proposalId===p.id);
     const stale=p.version!==S.snap.proposalVersion || Date.now()>=p.expires;
-    box.append(h('p',null,t('product_'+p.productId)),row(t('monthlyAmount'),money(p.monthly)),row(t('expires'),new Date(p.expires).toLocaleTimeString(I18n.locale)),h('p',{class:'disc'},t(confirmed?'planActiveNoDebit':'proposalOnly')));
+    box.append(h('p',null,t('product_'+p.productId)),
+      p.replacesPlanId ? row(t('previousMonthly'),money(p.previousMonthly)) : null,
+      row(t('monthlyAmount'),money(p.monthly)),row(t('expires'),new Date(p.expires).toLocaleTimeString(I18n.locale)),
+      h('p',{class:'disc'},t(confirmed?'planActiveNoDebit':p.replacesPlanId?'replacementOnly':'proposalOnly')));
     const fail=h('p',{class:'err',role:'status'});
     box.append(h('div',{class:'proposal-actions'},h('button',{class:'btn',disabled:confirmed || stale || S.pending,onclick:async event=>{
       const button=event.currentTarget;button.disabled=true;

@@ -27,6 +27,12 @@ function next({ text, results, risk, memory = {} }) {
     results.reuseProposal = true;
     return { text: '' };
   }
+  if (profile.planning?.hasActive && !input.change
+    && (input.monthly === null || input.monthly === profile.planning.monthly)
+    && (!input.riskAnswer || input.riskAnswer === profile.planning.risk)) {
+    results.activePlan = true;
+    return { text: '' };
+  }
   if (!results.compare_products) return { toolCalls:[call('compare_products',{goal:profile.goal,horizonYears:horizon,needsLiquidity:profile.incomePattern==='irregular',riskComfort:effectiveRisk || 'medium'})] };
   const cap=results.find_savings_capacity;
   const currentCap=results.what_if?.after || cap;
@@ -44,6 +50,12 @@ function next({ text, results, risk, memory = {} }) {
 const call = (name,input={}) => ({id:'script-'+name,name,input});
 function answer(results,risk,language='en') {
   if (results.conversation) return require('./conversation').answer(results, language);
+  if (results.activePlan) {
+    const planning = results.get_customer_profile.planning;
+    return t(language, 'activePlanAvailable', {
+      product: t(language, 'product_' + planning.product.id), monthly: planning.monthly,
+    });
+  }
   if (results.reuseProposal) {
     const planning = results.get_customer_profile.planning;
     return t(language, 'pendingUnchanged', {
