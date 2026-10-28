@@ -11,7 +11,10 @@ function create(sequence) {
     }
     const result=offline.next(request.context);
     if(!result.toolCalls?.length || result.stopAfterTools) {
-      if(!result.toolCalls?.length) return {text:offline.answer(request.context.results,request.context.risk,request.context.language),toolCalls:[],usage:{inputTokens:0,outputTokens:0}};
+      if (!result.toolCalls?.length) return {
+        text: offline.answer(request.context.results, request.context.risk, request.context.language),
+        toolCalls: [], usage: { inputTokens: 0, outputTokens: 0 },
+      };
     }
     return {...result,usage:{inputTokens:0,outputTokens:0}};
   }};
