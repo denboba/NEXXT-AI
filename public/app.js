@@ -49,6 +49,9 @@ const S = {
   config: {},
   personas: [],
   agent: { mode: 'offline', trace: [], usage: {} },
+  progress: null,
+  progressTimer: null,
+  activityOpen: null,
 };
 
 // ---------- boot ----------
@@ -74,7 +77,7 @@ async function boot() {
 async function loadMe() {
   const d = await api('GET', '/api/me');
   S.me = d;
-  S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user']) };
+  S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user', 'sampleProfile', 'requiresReplan', 'proposalVersion']) };
 }
 const pick = (o, keys) => Object.fromEntries(keys.filter((k) => k in o).map((k) => [k, o[k]]));
 
@@ -86,17 +89,32 @@ async function refreshPanel() {
 }
 
 // ---------- chat ----------
-async function send(input) {
+async function send(input, path = '/api/chat') {
   if (S.pending) return;
-  S.pending = true; S.error = null; render();
+  S.pending = true; S.error = null; S.progress = null; render();
+  const turnId = window.crypto?.randomUUID?.();
+  S.progress = { events: [], state: 'running', elapsedMs: 0 };
+  const poll = async () => {
+    if (!S.pending) return;
+    try {
+      S.progress = await api('GET', '/api/agent/status' + (turnId ? '?turnId=' + turnId : ''));
+      const panel = document.getElementById('activity');
+      if (panel) {
+        const open = panel.open;
+        const next = activityPanel(); next.open = open; panel.replaceWith(next);
+      }
+    } catch {}
+    if (S.pending) S.progressTimer = setTimeout(poll, 750);
+  };
+  S.progressTimer = setTimeout(poll, 200);
   try {
-    const r = await api('POST', '/api/chat', input);
-    S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason']) };
-    S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user','proposalVersion']), messages: r.history };
+    const r = await api('POST', path, { ...input, turnId });
+    S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason','providerCalls','refusalReason']) };
+    S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user', 'proposalVersion', 'sampleProfile', 'requiresReplan']), messages: r.history };
     if (S.snap.profile.years) S.years = S.snap.profile.years;
     await refreshPanel();
   } catch (e) { S.error = e.message; }
-  S.pending = false; render();
+  clearTimeout(S.progressTimer); S.pending = false; S.progress = null; render();
 }
 
 function lastCoachWithWidgetIndex() {
@@ -109,13 +127,14 @@ function chatCard() {
   const ms = S.snap.messages;
   const activeIdx = lastCoachWithWidgetIndex();
   const lastIdx = ms.length - 1;
+  const persona = S.snap.user?.personaId || S.snap.sampleProfile?.id;
   const list = h('div', { class: 'msgs', id: 'msgs' });
   ms.forEach((m, i) => {
     const bubble = h('div', { class: `msg ${m.role}` }, m.text);
     (m.widgets || []).forEach((w) => bubble.append(renderWidget(w, { active: i === activeIdx || (w.type !== 'chips' && i === lastIdx) || w.type === 'cta' || w.type === 'sim', i })));
     list.append(bubble);
   });
-  if (S.pending) list.append(h('div', { class: 'typing' }, t("typing")));
+  if (S.pending) list.append(h('div', { class: 'typing', role: 'status' }, t('working')));
   if (S.error) list.append(h('p', { class: 'err' }, S.error));
 
   const input = h('input', { type: 'text', placeholder: t("askPlaceholder"), maxlength: 300, 'aria-label': t("message"), id: 'msg-input' });
@@ -124,8 +143,9 @@ function chatCard() {
 
   return h('section', { class: 'card chat' },
     h('div', { class: 'chat-head' }, h('b', null, t("coach")), h('span', {class:'mode', 'aria-label':t('answerMode')}, S.agent.mode)),
-    S.snap.user?.personaId ? h('div',{class:'suggestions'},
-      h('button',{class:'chip',disabled:S.pending,onclick:()=>send({type:'text',text:t('prompt_'+S.snap.user.personaId)})},t('prompt_'+S.snap.user.personaId)),
+    persona ? h('div',{class:'suggestions'},
+      ['prompt_', 'whatif_', 'question_'].map(prefix => h('button', { class: 'chip', disabled: S.pending,
+        onclick: () => send({ type: 'text', text: t(prefix + persona) }) }, t(prefix + persona))),
       !S.snap.profile.risk ? ['low','medium','high'].map(risk=>h('button',{class:'chip',disabled:S.pending,onclick:()=>send({type:'text',text:risk})},t('risk_'+risk))) : null) : null,
     list, form);
 }
@@ -136,7 +156,7 @@ function renderWidget(w, { active }) {
     if (w.slider) {
       const out = h('b', null, `${fmt(w.slider.value)} lei`);
       const r = h('input', { type: 'range', min: w.slider.min, max: w.slider.max, step: w.slider.step, value: w.slider.value, disabled: !active || S.pending, 'aria-label': t("monthlyAmount"),
-        oninput: () => { oulabelNode.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
+        oninput: () => { out.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
       return h('div', { class: 'widget' }, row, h('div', { class: 'slider' }, h('label', null, h('span', null, t("slideAmount")), out), r));
     }
     return row;
@@ -153,6 +173,13 @@ function renderWidget(w, { active }) {
     return h('div', { class: 'cta widget' },
       h('button', { class: 'btn alt', onclick: () => go('signup') }, w.options[0].label + ' →'),
       h('button', { class: 'btn ghost', onclick: () => go('login') }, w.options[1].label));
+  }
+  if (w.type === 'connect_context') {
+    const select = h('select', { 'aria-label': t('chooseSample') }, S.personas.map(persona =>
+      h('option', { value: persona.id }, persona.name + ' · ' + persona.description)));
+    return h('div', { class: 'widget sample-connect' }, h('p', null, t('samplePreview')), select,
+      h('button', { class: 'btn', disabled: S.pending || Boolean(S.snap.sampleProfile) || Boolean(S.snap.user?.synthetic),
+        onclick: () => send({ persona: select.value }, '/api/context/connect') }, t('connectDemo')));
   }
   if (w.type === 'products') return productsWidget(w, active);
   if (w.type === 'handoff_form') return handoffForm();
@@ -230,9 +257,9 @@ function shrinkChart() {
     pts.forEach((p, i) => {
       const bh = (p.value / max) * H;
       g.append(svg('rect', { x: i * (bw + gap), y: H - bh, width: bw, height: bh, rx: 6, fill: i === 0 ? '#FFE11A' : '#D2553F' }));
-      const labelNode = svg('text', { x: i * (bw + gap) + bw / 2, y: H + 18, 'text-anchor': 'middle', fill: '#9A978E', 'font-size': 13 }); labelNode.textContent = i === 0 ? t("today") : t("year", {years:i}); g.append(labelNode);
     });
-    box.replaceChildren(g);
+    box.replaceChildren(g, h('div', { class: 'chart-axis' },
+      pts.map((point, i) => h('span', null, i === 0 ? t('today') : t('year', { years: i })))));
   };
   if (shrinkData) draw(shrinkData);
   else api('GET', '/api/shrink').then((d) => { shrinkData = d.points; draw(shrinkData); }).catch(() => {});
@@ -252,14 +279,14 @@ function lineChart(sim) {
   g.append(svg('path', { d: path('fund'), fill: 'none', stroke: '#121212', 'stroke-width': 4, 'stroke-linecap': 'round' }));
   const last = pts.length - 1;
   g.append(svg('circle', { cx: x(last), cy: y(sim.fund), r: 6, fill: '#FFE11A', stroke: '#121212', 'stroke-width': 3 }));
-  [0, Math.floor(last / 2), last].forEach((i) => { const labelNode = svg('text', { x: x(i), y: H - 6, 'text-anchor': i === 0 ? t("start") : i === last ? 'end' : 'middle', fill: '#6B685F', 'font-size': 13 }); labelNode.textContent = i === 0 ? t("today") : t("year", {years:pts[i].year}); g.append(labelNode); });
-  return g;
+  return h('div', null, g, h('div', { class: 'chart-axis' },
+    [0, Math.floor(last / 2), last].map(i => h('span', null, i === 0 ? t('today') : t('year', { years: pts[i].year })))));
 }
 
 function simPanel(sim, profile) {
   const out = h('b', null, `${fmt(sim.monthly)} lei`);
   const r = h('input', { type: 'range', min: 100, max: 2000, step: 50, value: sim.monthly, 'aria-label': t("monthlyAmount"), disabled: S.snap.stage === 'app' && profile.risk,
-    oninput: () => { oulabelNode.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
+    oninput: () => { out.textContent = `${fmt(r.value)} lei`; }, onchange: () => send({ type: 'amount', value: Number(r.value) }) });
   const seg = h('div', { class: 'seg' }, [3, 5, 10].map((y) => h('button', { class: `chip ${y === sim.years ? 'on' : ''}`, type: 'button', onclick: () => send({ type: 'choice', id: `y${y}` }) }, t("years", {years:y}))));
   return h('section', { class: 'card' },
     h('p', { class: 'eyebrow' }, t("liveNumbers")),
@@ -300,7 +327,7 @@ function topUpForm() {
   return h('form', { style: 'margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap', onsubmit: async (e) => {
     e.preventDefault();
     try { S.me = { ...S.me, ...(await api('POST', '/api/me/topup', { amount: Number(amt.value) })) }; render(); } catch (err) { note.textContent = err.message; note.style.display = 'block'; }
-  } }, h('span', { style: 'font-size:14px;color:#C8C6BE' }, t("demoTransfer")), amt, h('button', { class: 'btn alt', type: 'submit', style: 'padding:6px 14px' }, t("addMoney")), note);
+  } }, h('span', { style: 'font-size:16px;color:#C8C6BE' }, t("demoTransfer")), amt, h('button', { class: 'btn alt', type: 'submit', style: 'padding:6px 14px' }, t("addMoney")), note);
 }
 
 function planCard(p) {
@@ -377,8 +404,9 @@ function signupView() {
         su.demoCode ? h('div', { class: 'sms' }, t("demoSms"), h('b', null, su.demoCode)) : null,
         h('form', { onsubmit: (e) => { e.preventDefault(); run(async () => {
           const d = await api('POST', '/api/signup/otp/verify', { code: val(e.target, 'code') });
-          S.me = d; S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user']) };
-          S.signup = { step: 'details', data: {}, demoCode: null, sentTo: null }; S.view = 'chat'; render(); }); } },
+          S.me = d; S.snap = { ...S.snap, ...pick(d, ['messages', 'profile', 'stage', 'step', 'user', 'sampleProfile', 'requiresReplan', 'proposalVersion']) };
+          S.signup = { step: 'details', data: {}, demoCode: null, sentTo: null }; S.view = 'chat'; render();
+          if (S.snap.requiresReplan) await send({ type: 'text', text: t('authenticatedReplan') }); }); } },
           field(t("sixCode"), 'code', { inputmode: 'numeric', maxlength: 6, autocomplete: 'one-time-code', required: true }),
           h('button', { class: 'btn', type: 'submit' }, t("signOpen"))));
     }
@@ -406,7 +434,7 @@ function loginView() {
         h('button', { class: 'btn', type: 'submit' }, t("sendLogin"))));
   } else {
     body.append(h('h2', null, t("approveName", {name:L.firstName})), h('p', { style: 'color:var(--mute)' }, t("waiting")),
-      h('div', { class: 'phone' }, h('p', { style: 'margin:0 0 8px;font-weight:700' }, t("bankApp")), h('p', { style: 'margin:0 0 12px;font-size:15px' }, t("approveQuestion")),
+      h('div', { class: 'phone' }, h('p', { style: 'margin:0 0 8px;font-weight:700' }, t("bankApp")), h('p', { style: 'margin:0 0 12px;font-size:16px' }, t("approveQuestion")),
         h('button', { class: 'btn alt', type: 'button', onclick: () => api('POST', '/api/login/approve', { requestId: L.requestId }).then(pollLogin).catch((e) => { fail.textContent = e.message; fail.style.display = 'block'; }) }, t("approve")),
         h('button', { class: 'btn ghost', type: 'button', style: 'color:#F4F2EC;border-color:#555', onclick: () => api('POST', '/api/login/approve', { requestId: L.requestId, approve: false }).then(pollLogin) }, t("deny"))),
       h('p', { class: 'disc' }, t("demoPhone")),
@@ -425,8 +453,10 @@ async function pollLogin() {
     const r = await api('GET', `/api/login/status?requestId=${L.requestId}`);
     L.status = r.status;
     if (r.status === 'approved') {
-      S.me = r; S.snap = { ...S.snap, ...pick(r, ['messages', 'profile', 'stage', 'step', 'user']) };
-      S.login = { requestId: null, status: null, timer: null }; S.view = 'chat'; render(); return;
+      S.me = r; S.snap = { ...S.snap, ...pick(r, ['messages', 'profile', 'stage', 'step', 'user', 'sampleProfile', 'requiresReplan', 'proposalVersion']) };
+      S.login = { requestId: null, status: null, timer: null }; S.view = 'chat'; render();
+      if (S.snap.requiresReplan) await send({ type: 'text', text: t('authenticatedReplan') });
+      return;
     }
     if (r.status === 'pending') L.timer = setTimeout(pollLogin, 1500);
     else render();
@@ -452,6 +482,14 @@ function renderNav() {
     }},h('option',{value:''},t('choosePersona')),S.personas.map(persona=>h('option',{value:persona.id},t('persona_'+persona.id))));
     selector.value=S.snap.user?.personaId || '';
     nav.append(selector);
+    nav.append(h('button', { type: 'button', disabled: S.pending, onclick: async () => {
+      if (!confirm(t('resetWarning'))) return;
+      try {
+        await api('POST', '/api/demo/reset');
+        S.me = null; S.agent = { mode: 'offline', trace: [], usage: {} }; S.view = 'chat';
+        await boot();
+      } catch (error) { S.error = error.message; render(); }
+    } }, t('resetDemo')));
   }
   if (S.snap && S.snap.user) {
     nav.append(h('span', { class: 'chip-user' }, `${S.snap.user.firstName} ${S.snap.user.lastName}`),
@@ -480,21 +518,44 @@ function render() {
 
 function activityPanel() {
   const usage=S.agent.usage || {};
-  return h('details',{class:'card activity',open:S.config.demoMode},
+  return h('details',{id:'activity',class:'card activity',open: S.activityOpen ?? (S.config.demoMode && !matchMedia('(max-width: 600px)').matches),
+    ontoggle: event => { S.activityOpen = event.currentTarget.open; }},
     h('summary',null,t('activity'),' · ',h('span',{class:'mode'},S.agent.mode)),
     h('p',{class:'disc'},S.pending?t('working'):t('activityExplanation')),
+    S.pending ? h('p',{role:'status',class:'progress-live'},
+      t('elapsed',{seconds:Math.floor((S.progress?.elapsedMs || 0)/1000)}),
+      h('ol',null,(S.progress?.events || []).filter(event=>['tool_start','provider_start','provider_retry','fallback'].includes(event.type))
+        .map(event=>h('li',null,event.type==='tool_start'?t('progress_'+event.tool)
+          :event.type==='fallback'?t('progress_fallback'):event.type==='provider_retry'?t('progress_retry'):t('progress_provider'))))) : null,
     h('p',null,t('tokens')+': '+(usage.complete===false?t('unknownUsage'):((usage.inputTokens || 0)+(usage.outputTokens || 0))), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
-    S.agent.fallbackReason ? h('p',{class:'disc'},t('safeFallback')+' · '+S.agent.fallbackReason) : null,
+    S.agent.fallbackReason && !S.agent.refusalReason ? h('p', { class: 'disc', role: 'status' },
+      t(['auth', 'timeout', 'throttled', 'guard_rejection'].includes(S.agent.fallbackReason)
+        ? 'fallback_' + S.agent.fallbackReason : 'fallbackProvider')) : null,
+    !S.pending && !S.agent.trace?.length ? h('p', { class: 'disc' }, t('emptyActivity')) : null,
     h('ol',null,(S.agent.trace || []).map(item=>h('li',null,
       h('b',null,item.tool),h('code',null,JSON.stringify(item.input)),
       h('span',null,(item.error?t('rejected'):t('completed'))+' · '+item.summary+' · '+item.ms+' ms')))));
 }
 
 function agentCard(card) {
+  const secondary = ['budget', 'capacity', 'compare', 'simulation', 'risk_set'].includes(card.type);
+  const content = agentCardContent(card);
+  if (!secondary) return content;
+  return h('details', { class: 'card-detail', 'aria-label': t('card_' + card.type) },
+    h('summary', { title: t('cardDetails') }, t('card_' + card.type)), content);
+}
+
+function agentCardContent(card) {
   const type=card.type;
   const box=h('section',{class:'agent-card '+type,'aria-label':t('card_'+type)},h('h3',null,t('card_'+type)));
   const row=(label,value)=>h('div',{class:'kv'},h('span',null,label),h('b',null,value));
   const money=value=>fmt(value)+' lei';
+  const required = { budget: 'categories', capacity: 'asOf', compare: 'products', simulation: 'sim',
+    plan_proposal: 'proposal', what_if: 'after' }[type];
+  if (card.error || required && !card[required]) {
+    box.append(h('p', { role: 'status' }, t(card.error ? 'cardError' : 'cardEmpty')));
+    return box;
+  }
   if(type==='budget') {
     box.append(row(t('monthlyIncome'),money(card.monthlyIncome)),row(t('monthlySpend'),money(card.monthlySpend)),row(t('surplus'),money(card.monthlySurplus)));
     const max=Math.max(1,...Object.values(card.categories));
@@ -518,7 +579,16 @@ function agentCard(card) {
   } else if(type==='plan_proposal') {
     const p=card.proposal,confirmed=S.me?.portfolio?.plans?.some(plan=>plan.proposalId===p.id);
     const stale=p.version!==S.snap.proposalVersion || Date.now()>=p.expires;
-    box.append(h('p',null,t('product_'+p.productId)),row(t('monthlyAmount'),money(p.monthly)),row(t('expires'),new Date(p.expires).toLocaleTimeString(I18n.locale)),h('p',{class:'disc'},t(confirmed?'planActiveNoDebit':'proposalOnly')));
+    box.append(h('p',null,t('product_'+p.productId)),
+      p.replacesPlanId ? row(t('previousMonthly'),money(p.previousMonthly)) : null,
+      row(t('monthlyAmount'),money(p.monthly)),row(t('expires'),new Date(p.expires).toLocaleTimeString(I18n.locale)),
+      h('p',{class:'disc'},t(confirmed?'planActiveNoDebit':p.replacesPlanId?'replacementOnly':'proposalOnly')));
+    if (p.preview) {
+      box.append(h('p', null, t('previewOnly')), h('div', { class: 'proposal-actions' },
+        h('button', { class: 'btn', disabled: stale || S.pending, onclick: () => go('login') }, t('loginTitle')),
+        h('button', { class: 'btn ghost', disabled: stale || S.pending, onclick: () => go('signup') }, t('openAccount'))));
+      return box;
+    }
     const fail=h('p',{class:'err',role:'status'});
     box.append(h('div',{class:'proposal-actions'},h('button',{class:'btn',disabled:confirmed || stale || S.pending,onclick:async event=>{
       const button=event.currentTarget;button.disabled=true;

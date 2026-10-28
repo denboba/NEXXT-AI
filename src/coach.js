@@ -31,13 +31,17 @@ const FAQ_CHIPS = [
   { id: 'faq_fees', label: "legacyFaqFees" },
   { id: 'faq_how_fund', label: "legacyFaqFund" },
 ];
-const faqChips = (journey) => chips('faq', [...FAQ_CHIPS.map(option=>({...option,label:copy(journey,option.label)})), { id: 'human', label: copy(journey,"legacyHuman") }]);
+const faqChips = (journey) => chips('faq', [
+  ...FAQ_CHIPS.map(option => ({ ...option, label: copy(journey, option.label) })),
+  { id: 'human', label: copy(journey, 'legacyHuman') },
+]);
 
 const AMOUNTS = [100, 300, 500, 1000];
 const askAmount = (journey) => say(journey, journey.coach.stage === 'app'
   ? copy(journey,"legacyAskAmountApp")
   : copy(journey,"legacyGreeting"),
-  [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`, label: copy(journey,"legacyAmountLabel",{v0:fmt(a,journey)}) })), { slider: { min: 100, max: 2000, step: 50, value: journey.coach.profile.monthly || 500 } })]);
+  [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`, label: copy(journey, 'legacyAmountLabel', { v0: fmt(a, journey) }) })),
+    { slider: { min: 100, max: 2000, step: 50, value: journey.coach.profile.monthly || 500 } })]);
 
 const askWorry = (journey) => say(journey, copy(journey,"legacyAskWorry"), [chips('worry', [
   { id: 'fear_loss', label: copy(journey,"legacyWorryLoss") },
@@ -47,7 +51,9 @@ const askWorry = (journey) => say(journey, copy(journey,"legacyAskWorry"), [chip
 ])]);
 
 const askYears = (journey) => say(journey, copy(journey,"legacyAskYears"), [chips('years', [
-  { id: 'y3', label: copy(journey,"legacyYears3") }, { id: 'y5', label: copy(journey,"legacyYears5") }, { id: 'y10', label: copy(journey,"legacyYears10") },
+  { id: 'y3', label: copy(journey, 'legacyYears3') },
+  { id: 'y5', label: copy(journey, 'legacyYears5') },
+  { id: 'y10', label: copy(journey, 'legacyYears10') },
 ])]);
 
 const askRisk = (journey) => say(journey,
@@ -63,14 +69,18 @@ function simMessage(journey, lead) {
   const sim = engine.simulate({ monthly: p.monthly, years: p.years });
   analytics.track(journey._store, journey, 'simulation_viewed');
   return say(journey,
-    copy(journey,"legacySimulation",{v0:lead,v1:sim.years,v2:fmt(sim.monthly,journey),v3:fmt(sim.fund,journey),v4:fmt(sim.contributed,journey),v5:fmt(sim.cashReal,journey),v6:fmt(sim.advantage,journey)}),
+    copy(journey, 'legacySimulation', { v0: lead, v1: sim.years, v2: fmt(sim.monthly, journey), v3: fmt(sim.fund, journey),
+      v4: fmt(sim.contributed, journey), v5: fmt(sim.cashReal, journey), v6: fmt(sim.advantage, journey) }),
     [{ type: 'sim', sim, disclaimer: copy(journey,"legacyDisclaimer") }]);
 }
 
-function showOpen(journey) {
+function showOpen(journey, ctx = {}) {
+  if (ctx.env?.DEMO_MODE !== '0') offerContext(journey._store, journey);
   say(journey, copy(journey,"legacyAskMore"), [faqChips(journey)]);
   say(journey, copy(journey,"legacyContinue"),
-    [{ type: 'cta', options: [{ id: 'new', label: copy(journey,"legacyOpen") }, { id: 'existing', label: copy(journey,"legacyExisting") }] }]);
+    [{ type: 'cta', options: [
+      { id: 'new', label: copy(journey, 'legacyOpen') }, { id: 'existing', label: copy(journey, 'legacyExisting') },
+    ] }]);
 }
 
 // ---------- knowledge ----------
@@ -81,7 +91,8 @@ const FAQ = {
     const { monthly, years } = defaults(p);
     const sim = engine.simulate({ monthly, years });
     const bad = engine.stressTest({ monthly, years, drop: 0.2 });
-    return copy(journey,"legacyMarketDrop",{v0:years,v1:fmt(monthly,journey),v2:fmt(bad.fund,journey),v3:fmt(sim.fund,journey),v4:fmt(sim.cashReal,journey),v5:fmt(sim.contributed,journey)});
+    return copy(journey, 'legacyMarketDrop', { v0: years, v1: fmt(monthly, journey), v2: fmt(bad.fund, journey),
+      v3: fmt(sim.fund, journey), v4: fmt(sim.cashReal, journey), v5: fmt(sim.contributed, journey) });
   },
   withdraw(profile,journey) {
     const f = products.byId('diversified-fund');
@@ -127,7 +138,9 @@ function matchIntent(text) {
 
 function productAnswer(id,journey) {
   const p = products.byId(id);
-  return copy(journey,"legacyProduct",{v0:copy(journey,"product_"+p.id),v1:copy(journey,"blurb_"+p.id),v2:copy(journey,"riskLabel_"+p.risk),v3:p.redeemable ? copy(journey,"legacyRedeemable") : copy(journey,"legacyLocked")});
+  return copy(journey, 'legacyProduct', { v0: copy(journey, 'product_' + p.id), v1: copy(journey, 'blurb_' + p.id),
+    v2: copy(journey, 'riskLabel_' + p.risk),
+    v3: p.redeemable ? copy(journey, 'legacyRedeemable') : copy(journey, 'legacyLocked') });
 }
 
 function facts(journey) {
@@ -135,7 +148,8 @@ function facts(journey) {
   const lines = ['Simulation assumptions: inflation 5.5% a year, diversified fund illustration 7.2% a year. Minimum 100 lei a month.'];
   if (p.monthly && p.years) {
     const s = engine.simulate({ monthly: p.monthly, years: p.years });
-    lines.push(`Customer plan: ${s.monthly} lei a month for ${s.years} years. Paid in ${s.contributed} lei. As cash worth ${s.cashReal} lei in today’s money. In the fund ${s.fund} lei (simulation). Difference ${s.advantage} lei.`);
+    lines.push(`Customer plan: ${s.monthly} lei a month for ${s.years} years. Paid in ${s.contributed} lei. ` +
+      `As cash worth ${s.cashReal} lei in today’s money. In the fund ${s.fund} lei (simulation). Difference ${s.advantage} lei.`);
   }
   for (const pr of products.PRODUCTS) lines.push(`${pr.name}: ${pr.riskLabel}. ${pr.blurb} Minimum ${pr.minMonthly} lei a month.`);
   return lines.join('\n');
@@ -183,9 +197,15 @@ function start(store, journey) {
 // Demo personas arrive with a customer context, so the agent greets them instead of asking scripted questions.
 function enterAgent(store, journey, user) {
   ensureCoach(store, journey);
-  journey.coach.stage = 'app';
+  journey.coach.stage = journey.userId ? 'app' : 'web';
   journey.coach.step = 'agent';
   say(journey, copy(journey, 'personaGreeting', { v0: user.firstName }));
+  store.save();
+}
+
+function offerContext(store, journey) {
+  ensureCoach(store, journey);
+  say(journey, copy(journey, 'connectQuestion'), [{ type: 'connect_context' }]);
   store.save();
 }
 
@@ -196,7 +216,8 @@ function enterApp(store, journey, user) {
   c.stage = 'app';
   const p = c.profile;
   if (p.monthly && p.years) {
-    say(journey, copy(journey,"legacyCarryOver",{v0:user.firstName,v1:fmt(p.monthly,journey),v2:copy(journey,WORRY_LABEL[p.worry] || 'legacyChoices'),v3:p.years}));
+    say(journey, copy(journey, 'legacyCarryOver', { v0: user.firstName, v1: fmt(p.monthly, journey),
+      v2: copy(journey, WORRY_LABEL[p.worry] || 'legacyChoices'), v3: p.years }));
     c.step = 'ask_risk';
     askRisk(journey);
   } else {
@@ -212,10 +233,14 @@ function recommend(journey, ctx) {
   const rec = products.recommend(p);
   const allowed = products.allowedFor(p.risk).map((x) => x.id);
   c.step = 'recommend';
-  say(journey, copy(journey,"legacyRecommend",{v0:copy(journey,"tag_"+rec.id).toLowerCase(),v1:fmt(p.monthly,journey),v2:copy(journey,"product_"+rec.id),v3:copy(journey,"riskLabel_"+rec.risk),v4:rec.redeemable ? copy(journey,"legacyAccessSuffix") : ''}), [{
+  say(journey, copy(journey, 'legacyRecommend', {
+    v0: copy(journey, 'tag_' + rec.id).toLowerCase(), v1: fmt(p.monthly, journey), v2: copy(journey, 'product_' + rec.id),
+    v3: copy(journey, 'riskLabel_' + rec.risk), v4: rec.redeemable ? copy(journey, 'legacyAccessSuffix') : '',
+  }), [{
     type: 'products', monthly: p.monthly, recommended: rec.id,
     items: products.PRODUCTS.map((x) => ({
-      id: x.id, name: copy(journey,"product_"+x.id), tag: copy(journey,"tag_"+x.id), riskLabel: copy(journey,"riskLabel_"+x.risk), blurb: copy(journey,"blurb_"+x.id), allowed: allowed.includes(x.id),
+      id: x.id, name: copy(journey, 'product_' + x.id), tag: copy(journey, 'tag_' + x.id),
+      riskLabel: copy(journey, 'riskLabel_' + x.risk), blurb: copy(journey, 'blurb_' + x.id), allowed: allowed.includes(x.id),
       reason: allowed.includes(x.id) ? null : copy(journey,"legacyAboveRisk",{v0:copy(journey,"riskLabel_"+x.risk)}),
     })),
     disclaimer: copy(journey,"legacyDisclaimer"),
@@ -224,14 +249,19 @@ function recommend(journey, ctx) {
 
 function onActivated(store, journey, plan) {
   const product = products.byId(plan.productId);
-  say(journey, copy(journey,"legacyActivated",{v0:fmt(plan.monthly,journey),v1:copy(journey,"product_"+product.id),v2:plan.nextDebit}), [faqChips(journey)]);
+  say(journey, copy(journey, 'legacyActivated', { v0: fmt(plan.monthly, journey),
+    v1: copy(journey, 'product_' + product.id), v2: plan.nextDebit }), [faqChips(journey)]);
   journey.coach.step = 'active';
   store.save();
 }
 
 function onDebit(store, journey, plan, account) {
   const product = products.byId(plan.productId);
-  say(journey, copy(journey,"legacyDebited",{v0:fmt(plan.monthly,journey),v1:copy(journey,"product_"+product.id),v2:fmt(plan.invested,journey),v3:plan.debits,v4:copy(journey,plan.debits === 1 ? 'legacyMonth' : 'legacyMonths'),v5:plan.nextDebit,v6:fmt(account.balance,journey)}));
+  say(journey, copy(journey, 'legacyDebited', {
+    v0: fmt(plan.monthly, journey), v1: copy(journey, 'product_' + product.id), v2: fmt(plan.invested, journey),
+    v3: plan.debits, v4: copy(journey, plan.debits === 1 ? 'legacyMonth' : 'legacyMonths'),
+    v5: plan.nextDebit, v6: fmt(account.balance, journey),
+  }));
   store.save();
 }
 
@@ -266,7 +296,10 @@ async function handle(store, journey, input, ctx = {}) {
   } else if (input.type === 'amount') {
     const v = Number(input.value);
     if (!['ask_amount', 'open'].includes(c.step)) return { messages: [] };
-    if (!started) { userSaid(journey, copy(journey,"legacyAmountMessage",{v0:fmt(v,journey)})); track('chat_started'); } else if (c.step === 'open') userSaid(journey, copy(journey,"legacyAmountMessage",{v0:fmt(v,journey)}));
+    if (!started) {
+      userSaid(journey, copy(journey, 'legacyAmountMessage', { v0: fmt(v, journey) }));
+      track('chat_started');
+    } else if (c.step === 'open') userSaid(journey, copy(journey, 'legacyAmountMessage', { v0: fmt(v, journey) }));
     return amountStep(store, journey, v, before);
   } else if (input.type === 'choice') {
     const id = String(input.id || '');
@@ -289,7 +322,10 @@ async function handle(store, journey, input, ctx = {}) {
     } else if (/^y(3|5|10)$/.test(id) && ['ask_years', 'open'].includes(c.step)) {
       p.years = Number(id.slice(1));
       if (c.stage === 'app') { c.step = 'ask_risk'; askRisk(journey); }
-      else if (c.step === 'ask_years') { c.step = 'open'; track('questions_answered'); simMessage(journey, copy(journey,"legacyPicture")); showOpen(journey); }
+      else if (c.step === 'ask_years') {
+        c.step = 'open'; track('questions_answered');
+        simMessage(journey, copy(journey, 'legacyPicture')); showOpen(journey, ctx);
+      }
       else simMessage(journey, copy(journey,"legacyUpdated"));
     } else if (c.step === 'ask_risk' && RISK_OF[id]) {
       p.risk = RISK_OF[id];
@@ -306,7 +342,11 @@ async function handle(store, journey, input, ctx = {}) {
 function amountStep(store, journey, v, before) {
   const c = journey.coach, p = c.profile;
   if (!Number.isFinite(v) || v < engine.LIMITS.minMonthly || v > engine.LIMITS.maxMonthly) {
-    say(journey, copy(journey,"legacyAmountLimits",{v0:engine.LIMITS.minMonthly,v1:fmt(engine.LIMITS.maxMonthly,journey)}), [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`, label: copy(journey,"legacyAmountLabel",{v0:fmt(a,journey)}) })), { slider: { min: 100, max: 2000, step: 50, value: 500 } })]);
+    say(journey, copy(journey, 'legacyAmountLimits', {
+      v0: engine.LIMITS.minMonthly, v1: fmt(engine.LIMITS.maxMonthly, journey),
+    }), [chips('amount', AMOUNTS.map((a) => ({ id: `a${a}`,
+      label: copy(journey, 'legacyAmountLabel', { v0: fmt(a, journey) }),
+    })), { slider: { min: 100, max: 2000, step: 50, value: 500 } })]);
   } else {
     p.monthly = Math.round(v);
     if (c.step === 'open') simMessage(journey, copy(journey,"legacyUpdated"));
@@ -317,4 +357,4 @@ function amountStep(store, journey, v, before) {
   return { messages: journey.messages.slice(before) };
 }
 
-module.exports = { start, handle, enterApp, enterAgent, onActivated, onDebit, DISCLAIMER };
+module.exports = { start, handle, enterApp, enterAgent, offerContext, onActivated, onDebit, DISCLAIMER };

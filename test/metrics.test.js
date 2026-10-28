@@ -11,7 +11,7 @@ test('admin preserves the funnel and reports agent metrics and confirmation conv
  assert.equal(metrics.conversations,1);assert.equal(metrics.modeSplit.offline,1);assert.equal(metrics.averageToolCallsPerConversation,7);
  assert.equal(metrics.estimatedModelCostPerActivatedPlanUsd,0);assert.equal(metrics.proposalToConfirmationRate,1);assert.equal(metrics.confirmedPlans,1);
  assert.ok(metrics.topTools.some(tool=>tool.name==='find_savings_capacity'));assert.equal(Object.values(metrics.conversationsPerDay)[0],1);
- assert.equal((await c.get('/api/admin/metrics',{'x-admin-token':'secret'})).data.steps.length,6);
+ assert.equal((await c.get('/api/admin/metrics',{'x-admin-token':'secret'})).data.steps.length,7);
  const filtered=(await c.get('/api/admin/agent-metrics?source=missing',{'x-admin-token':'secret'})).data;assert.equal(filtered.conversations,0);assert.equal(filtered.confirmedPlans,0);
  app.store.db.turns[0].costUsd=null;
  const unknown=(await c.get('/api/admin/agent-metrics',{'x-admin-token':'secret'})).data;assert.equal(unknown.estimatedModelCostPerConversationUsd,null);assert.equal(unknown.unpricedTurns,1);

@@ -25,7 +25,7 @@ flowchart LR
 
 Safety comes before conversion. Buffers, taxes and payroll are protected, product segment and suitability are checked on the server, model replies cannot invent numeric figures, and every activation needs the separate Confirm action. A chat message saying “yes” cannot activate a plan. Debits are separate demo actions and also preserve protected reserves. Merchant and profile text are untrusted data; tools accept no customer identifier.
 
-**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **42/42 scripted scenarios**, including **22/22 safety scenarios**. This is deterministic CI evidence, not a live-model score. Live evaluation is **unrun without credentials**; the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 364.47 requests/sec**, p50 **13.6 ms**, p95 **58.93 ms**, p99 **83.78 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
+**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **74/74 scripted scenarios**, including **22/22 safety scenarios**. This is deterministic CI evidence, not a live-model score. The configured Bedrock smoke run returned **0/5 live passes (HTTP 403 access denied)**; full live quality remains unvalidated and the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 409.49 requests/sec**, p50 **13.3 ms**, p95 **65.78 ms**, p99 **92.04 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
 
 ### Run in 60 seconds
 
@@ -36,13 +36,15 @@ npm run setup          # creates .env only if absent; random local ADMIN_TOKEN
 npm start
 ```
 
-Open the app on port 3000, choose a **demo persona** in the header, click their suggested first prompt, then answer the risk question. The badge says `offline` without a configured key. `/ad` retains the anonymous acquisition flow; `/admin` retains the funnel and adds planning metrics. Get the local admin token from the ignored configuration using your editor; do not paste it into logs or version control.
+Open the app on port 3000, choose a **demo persona** in the header, click their suggested first prompt, then answer the risk question. The badge says `offline` without a configured key. `/ad` retains the anonymous acquisition flow; `/admin` retains the funnel and adds planning metrics. Use **Reset demo** before each presentation. The documented phone/email login is the same Ioana account as the persona switcher. After the anonymous simulation, **Connect my accounts (demo)** reads a selected sample and lets the agent analyze it before login. Get the local admin token from the ignored configuration using your editor; do not paste it into logs or version control.
 
 ```bash
 npm test
 npm run eval
 npm run eval -- --live          # exits 2 if no real provider key is configured
 npm run loadtest
+npm run smoke:live             # exit 2 with no key; exit 1 on a failed live path
+npm run impact -- --visitors=10000 --chatRate=0.15 --accountRate=0.3 --activationRate=0.35 --monthly=300
 npm run loadtest -- --concurrency=10 --journeys=20 --write-report
 ```
 
@@ -58,7 +60,7 @@ Set values securely in `.env` or environment settings; all variables are describ
 | OpenAI-compatible Chat Completions | `COMPAT_API_KEY`, `COMPAT_BASE_URL` including the API prefix (for example `/v1`), and a compatible `COACH_MODEL` |
 | Amazon Bedrock Converse | `AWS_BEARER_TOKEN_BEDROCK`, `AWS_REGION=eu-west-2`, and the exact `BEDROCK_MODEL_ID` or inference-profile ID/ARN |
 
-Bedrock uses the regional HTTPS runtime endpoint and API-key bearer authentication, with no SDK dependency. **The requested Opus 5.5 identifier and availability in London are not verified.** Copy the identifier from the Bedrock console; do not use the display name or silently substitute another model. Adapters have mocked protocol tests; no real model response has been validated in this environment.
+Bedrock uses the regional HTTPS runtime endpoint and API-key bearer authentication, with no SDK dependency. **The requested Opus 5.5 identifier and availability in London are not verified.** Copy the identifier from the Bedrock console; do not use the display name or silently substitute another model. Adapters have mocked protocol tests. The latest configured Bedrock calls received HTTP 403 AccessDeniedException; no real model response has been validated. The configured model identifier does not match the requested Opus model; correct the secure key/access and exact console model/profile identifier before repeating the smoke run. See [LIVE_RUNBOOK](docs/LIVE_RUNBOOK.md).
 
 In this managed environment, enable Node 24's inherited proxy support **before starting Node**, keep the injected proxy/CA variables, and allow only the required provider destination:
 
@@ -69,69 +71,39 @@ NODE_USE_ENV_PROXY=1 npm run eval -- --live
 
 For Bedrock the destination is `bedrock-runtime.eu-west-2.amazonaws.com`. Proxy secret bindings must target it. Anthropic uses `api.anthropic.com`; a compatible service uses the hostname from its configured base URL. `NODE_USE_ENV_PROXY` in `.env` alone is not a substitute for startup activation. Node 20 remains supported for the app and direct-network use; use Node 24+ for this proxy path.
 
-The loop caps tool iterations at six, total time at 30 seconds (raise with `LLM_TIMEOUT_MS`, up to 60 000), and provider usage at the configured token budget. Configure actual per-million token rates with `LLM_INPUT_USD_PER_MILLION` and `LLM_OUTPUT_USD_PER_MILLION` to estimate model costs. Unpriced live usage is reported as unknown. This demo has no production monetary-budget ledger or provider backoff service.
+The loop caps tool iterations at six, total time at 30 seconds (raise with `LLM_TIMEOUT_MS`, up to 60 000), each provider call at 20 seconds by default (`LLM_CALL_TIMEOUT_MS`), and provider usage at the configured token budget. Transient 429/5xx/reset failures get one short retry bounded by the deadlines. The session-owned activity poll shows actual steps while the POST is pending. Configure actual per-million token rates with `LLM_INPUT_USD_PER_MILLION` and `LLM_OUTPUT_USD_PER_MILLION` to estimate model costs. Unpriced live usage is reported as unknown. This demo has no production monetary-budget ledger or fleet-wide circuit breaker. [IMPACT_MODEL](docs/IMPACT_MODEL.md) and `npm run impact` show hypothetical growth and model-cost scenarios separately from measurements.
 
 ### Three-minute demo script
 
-Use a fresh demo database for a repeat presentation, or explicitly stop previous plans before proposing the same product again. Persona selection logs into shared fictional accounts; it does not reset their balances or active plans. All steps below work without a key.
+Start at `/` and use **Reset demo**; accept its warning that all shared demo personas reset and affected visitors are signed out. This script is verified offline and takes about three minutes; a live provider adds its actual latency. Every financial profile, authentication and bank operation is simulated.
 
 | Time | Action | What the judges see |
 |---|---|---|
-| 0:00–0:30 | Select **Ioana**, click her suggested prompt, then **Medium risk**. | Spending, a three-month buffer, safe monthly amount, product comparison, simulation and a diversified-fund proposal. Expand **Agent activity** to show actual tool calls and the truthful mode badge. |
-| 0:30–1:05 | Click **Change**, send “I need the money for a car in 2 years”. Review the new proposal and press **Confirm**. | An explained before/after diff and a deposit instead of a market-fund proposal. The old proposal is disabled. Confirmation creates the plan; it does not run a debit. Optionally show the separate demo debit button. |
-| 1:05–1:35 | Select **Andrei**, click his suggested prompt, then **Low risk**. | “Do not invest yet”; specific subscriptions, a one-month buffer target and a 100 lei buffer-saving proposal. No investment is pushed. |
-| 1:35–2:00 | Select **Mihai**, click his prompt, then **Medium risk**. | A six-month essentials buffer, a 12,000 lei tax reserve, liquid alternatives and a small 200 lei monthly proposal. |
-| 2:00–2:25 | Select **Elena**, click her prompt, then **Low risk**. | Protected payroll, seasonal cash-flow analysis and a business deposit ladder; consumer products are marked unsuitable. |
-| 2:25–2:45 | Change the header language to **Română**, select a persona and send its Romanian prompt. | Localized controls and deterministic Romanian answers; numeric formats are covered by guard tests. |
-| 2:45–3:00 | Open `/admin` using the local token. Point to the committed eval and scale reports. | Existing funnel, mode split, tool use, cost per conversation/activated plan, proposal conversion and refusal audit. Say explicitly that live quality is unvalidated until real credentials are supplied. |
+| 0:00–0:10 | **Reset demo**, then open `/ad` and follow the Instagram CTA. | A repeatable fresh journey with an explicit synthetic-data notice. |
+| 0:10–0:45 | Choose **500 lei**, **Fear of losing my money**, **5 years**. In **Connect my accounts (demo)** choose **Ioana**, connect, then answer **Medium risk**. | The initial guess becomes a spending/capacity analysis using sample transactions. Expand calculation details and activity. The preview has login/open-account buttons and **no Confirm**. |
+| 0:45–1:15 | On the preview choose **Log in with the Raiffeisen app**. Enter `+40 722 000 111`, send the request and **Approve**. The app recalculates. Ask “What fees will I pay?”, then send “I need the money for a car in 2 years” and **Confirm** the replacement. | The same Ioana account with 18,400 lei; a fresh authenticated proposal. The fee question preserves it. The shorter goal explains a diff and changes the fund to a deposit. Confirmation creates a plan without a debit. |
+| 1:15–1:35 | Select **Andrei**, tap his saving prompt and **Low risk**. | A buffer-first answer, specific subscription cuts and a 100 lei buffer-saving proposal. No market investment is pushed. |
+| 1:35–1:55 | Select **Mihai**, tap his saving prompt and **Medium risk**. | A six-month essentials buffer and 12,000 lei tax reserve; a small 200 lei plan and liquid alternatives. |
+| 1:55–2:15 | Select **Elena**, tap her saving prompt and **Low risk**. | Payroll and seasonal lows protected; a business deposit ladder with consumer products marked unsuitable. |
+| 2:15–2:35 | Switch to **Română**, select **Ioana** and tap her question about market drops. | Localized controls and tool-sourced Romanian answers. Supporting cards expand; proposals stay prominent. |
+| 2:35–3:00 | Open `/admin` with the local token. Point to eval, scale and impact reports. | Funnel including `context_connected`, mode split, tool use, conversion and unknown/estimated model cost. State that growth assumptions are hypothetical and live Bedrock access is currently denied. |
 
-![Offline planning and tool activity](docs/screenshots/agent-ioana-1360.png)
-![Buffer-first planning on a phone](docs/screenshots/agent-andrei-390.png)
+A persona switch signs into a shared fictional account; it does not reset money. Reset before repeating. To demonstrate the simpler existing-client route, skip sample connection and use the same phone or `ioana.popescu@example.com` from the normal login button: it also reaches the agent. New demo accounts can explicitly link sample spending but keep their actual account balance; they never receive the sample's cash.
 
-## Original acquisition flow
+![Offline planning and tool activity](docs/screenshots/task2-1360.png)
+![Planning on a phone](docs/screenshots/task2-390.png)
 
-A working platform that turns a social ad into a first investment in one conversation.
+## Acquisition and account demo
 
-**Social ad → chat in the browser → open an account or log in → the same chat continues inside the account → plan activated → first debit.**
+`/ad` attributes the journey to a fictional campaign. The anonymous questions and simulation remain available; the connection card then adds explicit sample spending and the agent preview. The ordinary login button also works directly: `+40 722 000 111` or `ioana.popescu@example.com`, followed by demo phone approval, reaches the same Ioana history and agent.
 
-![Chat with live simulation](docs/screenshots/chat-simulation.png)
+New-account onboarding still enforces details → ID number → selfie → OTP signature in order. Only the last ID characters are retained; OTP attempts and expiry are enforced. The demo SMS/selfie/approval stand-ins are labeled. A new account without history offers sample connection or an adviser; it cannot receive invented investment capacity. Connecting synthetic history never credits a balance.
 
-## Run it
-
-Needs Node 20+ (no `npm install`, there are no dependencies).
-
-```bash
-npm start
-```
-
-| URL | What it is |
-|---|---|
-| http://localhost:3000/ad | Fake social feed. Each ad opens the chat with its channel and campaign, so the funnel is attributed. |
-| http://localhost:3000/ | The coach. |
-| http://localhost:3000/admin | Funnel metrics and adviser call requests (token: `ADMIN_TOKEN`). |
-
-**Try it:** click an ad, answer the three questions, open an account (the demo SMS code is shown on screen), answer the risk question, activate the plan, add demo money and run the first debit.
-**Existing client:** log in with `+40 722 000 111` (Ioana Popescu, 2,500 lei) and approve on the demo phone.
-
-Copy `.env.example` to `.env` to change the port, admin token, or enable the optional Claude answers.
+Every activation requires a validated proposal followed by the separate Confirm endpoint. Demo top-ups and scheduled-debit stand-ins are explicit account actions; debits protect the buffer and obligations. Repeated presentations use the header reset, rather than deleting the database. `/admin` shows the original funnel plus `context_connected`, conversation/tool/mode/cost metrics and the adviser queue.
 
 ```bash
-npm test      # 61 tests: original flows, tools, agent, confirmation, safety, providers and Romanian
+npm test      # 106 tests: original flows plus tools, conversation, providers, progress, confirmation and safety
 ```
-
-For the new budget-aware planning demo, use the persona switcher. A newly opened account without linked spending history cannot receive an invented investment capacity; its safe next step is linking context or speaking to an adviser.
-
-## What it does
-
-| Step | Behaviour |
-|---|---|
-| **1 · Social ad** | `/?src=instagram&cmp=cash-loses` creates a tracked journey (cookie session). |
-| **2 · Chat** | Three questions (how much, what worries you, how long), then a live simulation: 500 lei/month for 5 years is **35,771 lei** invested vs **26,379 lei** as cash in today's money (+9,392 lei). A slider and year buttons re-run it. One-tap answers for the worries: market drops (with a worst-timed 20% fall), withdrawing, fees, how a fund works. Free text is matched to the same answers. A person is one tap away (adviser call request with the conversation attached). |
-| **3 · Two doors** | **New customer:** details, ID card number, selfie, SMS-code signature. Creates the profile, an account and a yellow virtual card. Steps are enforced in order, the code expires after 5 minutes and locks after 5 wrong tries, and only the last 4 ID characters are stored. **Existing client:** login request, approved on the "phone". Either way the conversation, amount, worry and horizon carry over. |
-| **4 · In the account** | The coach greets by name, recalls the plan, asks one suitability question (how you would react to a 15% drop), then recommends a product and shows the shelf. Products above the customer's comfort level are shown but locked. One tap activates a monthly plan. Demo-only buttons add money and run the monthly debit; plans can be stopped. The coach checks in after each debit. |
-| **Metrics** | `/admin`: ad click → chat started → 3 questions answered → account opened/logged in → plan activated → first debit executed, with conversion at each step, new vs existing clients, filter by channel, and adviser requests. |
-
-![Product shelf with suitability gate](docs/screenshots/in-app-products.png)
 
 ## How it is built
 
@@ -143,7 +115,7 @@ src/coach.js   the preserved anonymous conversation and FAQ
 src/agent/     provider adapters, bounded tool loop and offline planner
 src/tools/     scoped capacity, comparison, simulations and proposals
 src/data/      deterministic synthetic profiles and spending histories
-src/engine.js  the only source of investment numbers
+src/engine.js  deterministic projection and stress calculations
 src/bank.js    stand-ins for the bank's systems: customers, eKYC, SMS signing, accounts, cards, plans, ledger
 src/products.js product shelf and suitability caps
 src/analytics.js funnel events
@@ -153,14 +125,14 @@ src/store.js   JSON-file persistence (data/db.json)
 
 **The AI talks, the bank's systems do the numbers, identity checks and money movement.** Concretely:
 
-- Every figure shown comes from `engine.js` or the product catalogue, never from a language model.
+- Financial figures come from the engine, scoped synthetic data or product catalogue and are returned through tools; model-invented figures fail validation.
 - Optional: configure Anthropic, an OpenAI-compatible service or Bedrock as described above. The agent calls the tools; invented numeric figures are rejected, and a failed provider turn uses the deterministic offline planner.
 - The coach never moves money. Plans are created and debited only through `bank.js`, after a suitability check.
 - Results carry "Simulation only · past returns don't guarantee future results".
 
 ### API (JSON, cookie session)
 
-`POST /api/journey` · `POST /api/chat` · `GET /api/simulate?monthly=&years=` · `POST /api/signup/{details,id,selfie}` · `POST /api/signup/otp/{request,verify}` · `POST /api/login/request` · `GET /api/login/status` · `GET /api/me` · `POST /api/plans` · `POST /api/plans/:id/{run-debit,stop}` · `POST /api/handoff` · `GET /api/admin/{metrics,handoffs}` (header `x-admin-token`)
+`POST /api/context/connect` (demo sample preview) · `POST /api/agent` · `GET /api/agent/status?turnId=` · `POST /api/proposals/:id/confirm` · `POST /api/demo/reset` (demo-only) · `GET /api/admin/agent-metrics` · `POST /api/journey` · `POST /api/chat` · `GET /api/simulate?monthly=&years=` · `POST /api/signup/{details,id,selfie}` · `POST /api/signup/otp/{request,verify}` · `POST /api/login/request` · `GET /api/login/status` · `GET /api/me` · `POST /api/plans` · `POST /api/plans/:id/{run-debit,stop}` · `POST /api/handoff` · `GET /api/admin/{metrics,handoffs}` (header `x-admin-token`)
 
 ## Going from demo to production
 
@@ -175,7 +147,7 @@ The demo is complete end to end, but these parts are deliberately stand-ins and 
 | `data/db.json` | A real database |
 | Fees, settlement days, return and inflation assumptions (`products.js`, `engine.js`) | The product team's confirmed figures |
 | Appropriateness check = one question | The bank's regulated suitability / appropriateness questionnaire |
-| English only | Romanian (and other) copy, reviewed by compliance |
+| English and Romanian demo copy | Bank/compliance review and any further supported languages |
 
 Also before launch: legal and compliance review of all wording, GDPR consent and retention, HTTPS in front of the server, and a strong `ADMIN_TOKEN`.
 
