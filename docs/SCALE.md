@@ -4,8 +4,8 @@ Measured with `npm run loadtest -- --concurrency=10 --journeys=20`.
 
 ```json
 {
-  "timestamp": "2026-10-28T16:49:21.146Z",
-  "baseCommit": "78e94d2dd2ad920fa0d3b1c4a7f36b638600593d",
+  "timestamp": "2026-10-28T18:18:56.208Z",
+  "baseCommit": "575bcc18aca640f3cba1af94fd130d67eb6d4d83",
   "node": "v24.19.0",
   "platform": "linux/x64",
   "cpu": "AMD EPYC 9V74 80-Core Processor",
@@ -19,12 +19,12 @@ Measured with `npm run loadtest -- --concurrency=10 --journeys=20`.
   "completed": 20,
   "failed": 0,
   "requests": 80,
-  "elapsedMs": 219.5,
-  "requestsPerSecond": 364.47,
+  "elapsedMs": 195.37,
+  "requestsPerSecond": 409.49,
   "requestLatencyMs": {
-    "p50": 13.6,
-    "p95": 58.93,
-    "p99": 83.78
+    "p50": 13.3,
+    "p95": 65.78,
+    "p99": 92.04
   },
   "statuses": {
     "200": 80
@@ -41,7 +41,7 @@ These are local measurements of the loadtest working tree based on the recorded 
 
 - `Store` exposes `db`, `save()` and `flush()`, but application code still mutates the in-process object directly. A database migration needs scoped repository methods, transactions, uniqueness constraints and idempotency before horizontal scaling. JSON flush rewrites the complete dataset; concurrent writers are unsupported.
 - HTTP handlers can move behind a load balancer after session, onboarding and rate-limit state moves to shared storage. Currently the limiter is process-local and trusts the socket IP; do not trust arbitrary forwarded IP headers.
-- Provider calls have six tool iterations, a twelve-second deadline and a total-token cap per turn. Agent requests have a session rate limit. Production still needs shared global/per-user monetary budgets and provider-specific retry/backoff and circuit breakers; current errors fall back immediately. Offline tools continue without a provider.
+- Provider calls have six tool iterations, a default 30-second total deadline (maximum 60 seconds), a separate default 20-second call deadline and a total-token cap per turn. Agent requests have a session rate limit. Production still needs shared global/per-user monetary budgets and circuit breakers and usage reconciliation; transient 429/5xx/reset failures already get one deadline-bounded retry before fallback. Offline tools continue without a provider.
 - Cache deterministic simulations by amount, horizon and assumptions version. Never share cached customer data across sessions. Keep authorization outside the cache and confirm every proposed plan through the server.
 
 ## Rate-limit stress check
