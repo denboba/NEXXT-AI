@@ -45,7 +45,7 @@ The rule cards live in [src/domain/rules.js](../src/domain/rules.js) (version `2
 | `not-a-deposit` | Regulation | Funds, pension assets, stocks and ETFs are not deposits; value can fall | Law 311/2015; Directive 2014/49/EU | Investments labelled `not_deposit` in comparisons |
 | `depositary-segregation` | Regulation | Fund assets held by an independent depositary | UCITS Directive 2009/65/EC; Law 204/2006; ASF | Cited for fund and pension protection questions |
 | `investor-compensation` | Regulation | Investor compensation up to 20,000 EUR, never for market losses | FCI; Directive 97/9/EC | Cited for fund and stock protection questions |
-| `pension-rights-guarantee` | Regulation | Private pension rights have a separate guarantee fund | FGDSPP; Law 204/2006; ASF | Cited for voluntary pension |
+| `pension-rights-guarantee` | Regulation | Private pension rights have a separate guarantee fund | FGDSPP; Law 187/2011; ASF | Cited for voluntary pension |
 | `term-lock` | Demo bank policy | Term deposits locked until maturity; early break forfeits interest in the demo | Demo product terms | `redeemable: false`, `liquidity: 'locked'` in `products.js` |
 | `redemption-settlement` | Demo bank policy | Units and securities settle in days (funds 3, stocks 2) | Demo product terms; prospectus | `settlementDays` in `products.js` |
 | `pension-withdrawal` | Regulation | Pension payout generally from age 60 after 90 monthly contributions | Law 204/2006; ASF | `minHorizonYears: 10` for voluntary pension |

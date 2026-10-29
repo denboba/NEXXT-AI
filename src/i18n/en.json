@@ -140,7 +140,7 @@
   "question_pension": "{product}: contributions are deductible from taxable income up to the lei equivalent of {cap} EUR per year per participant (source: {source}). I do not compute your personal tax; an adviser can confirm it. Your current proposal is unchanged.",
   "taxLine_pfa": "As a freelancer, income tax and social contributions are paid through the annual single declaration, which is why that reserve stays protected (source: {source}).",
   "taxLine_scope": "Rule applied: {rule} (source: {source}).",
-  "question_rules_blocked": "{product} is not available to you right now. {reasons} Main rule: {rule} (source: {source}). Your existing proposal is unchanged.",
+  "question_rules_blocked": "{product} is not available to you right now. {reasons} Rules behind this: {rule} (source: {source}). Your existing proposal is unchanged.",
   "question_rules_ok": "{product} passes the current checks for your segment, horizon, risk answer and buffer. Rule that still applies: {rule} (source: {source}). Your existing proposal is unchanged.",
   "ruleShort_segment": "It is meant for a different customer segment.",
   "ruleShort_appropriateness": "It does not fit your goal horizon or your risk answer.",

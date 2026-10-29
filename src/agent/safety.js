@@ -1,7 +1,7 @@
 'use strict';
 const clean = text => String(text || '').replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').trim();
 const fold = text => clean(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-const RETURN_PROMISE = /returns?\b|yield|profit|gain|earn|randament|castig|dobanda.{0,20}%|\d+\s*%|percent|procent|fara risc|no risk|risk[- ]free/;
+const RETURN_PROMISE = /returns?\b|yield|profit|gain|earn|randament|castig|dobanda.{0,20}%|\d+\s*%|percent|procent|fara risc|no risk|risk[- ]free|doubl|\bdubl|tripl|multipl|\bgrow|growth|creasc|creste|crestere|beat(s|ing)? inflation|bate inflatia|(won'?t|will not|never|can'?t|cannot|not) lose|nu (voi |o sa |am sa )?(pierd|pierde)|fara (sa )?pierd/;
 // Names of statutory protection schemes that a correct reply may mention. They are removed
 // before the reply guard looks for return guarantees.
 const PROTECTION_TERMS = /deposit guarantee( scheme| fund)?|guarantee (scheme|fund)|fondul de garantare|garantarea depozitelor|schema de garantare/ig;

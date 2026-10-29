@@ -49,7 +49,7 @@ This page explains who the agent serves, which bank problem it addresses, how va
 1. **Internal pilot with existing app users.** Existing clients already have real history, so the authenticated path (login, re-plan, confirm) can run first, behind a feature flag, with the anonymous ad flow added later.
 2. **Compliance and legal review.** Verify every rule card in [src/domain/rules.js](../src/domain/rules.js) (all are flagged `verifyWith: 'bank compliance'`), the wording, GDPR consent and retention, and replace the single risk question with the regulated suitability questionnaire.
 3. **Replace stand-ins.** Follow the "Going from demo to production" table in the [README](../README.md#going-from-demo-to-production): core banking and investment APIs instead of `bank.js`, a real eKYC provider, SMS and push approval, a transactional database, confirmed product terms.
-4. **Validate the live model.** Fix provider access (the current Bedrock smoke run returns HTTP 403), run `npm run eval -- --live` against the same 83 scenarios and require the agreed pass rate before exposure. See [docs/LIVE_RUNBOOK.md](LIVE_RUNBOOK.md).
+4. **Validate the live model.** Fix provider access (the current Bedrock smoke run returns HTTP 403), run `npm run eval -- --live` against the same 86 scenarios and require the agreed pass rate before exposure. See [docs/LIVE_RUNBOOK.md](LIVE_RUNBOOK.md).
 5. **A/B rollout.** Compare the agent journey against the current journey on suitable activation, first successful debit, adviser workload, refusal reasons, complaints and retention, not only headline conversion.
 6. **Adviser handoff in production.** Route `handoff_to_adviser` into the bank's CRM or adviser scheduling.
 

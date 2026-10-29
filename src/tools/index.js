@@ -61,17 +61,23 @@ function compare(customer, input, cap) {
   const risk = input.riskComfort || 'low';
   const allowed = new Set(products.allowedFor(risk).map(p => p.id));
   return products.PRODUCTS.map(product => {
-    const why = [], whyNot = [], ruleIds = [];
-    // Each exclusion cites the rule topic (src/domain/rules.js) that drove it.
-    const exclude = (reason, rule) => { whyNot.push(reason); if (!ruleIds.includes(rule)) ruleIds.push(rule); };
-    if (product.segment !== customer.segment) exclude('Different customer segment.', 'segment');
-    if (horizon < product.minHorizonYears) exclude('Minimum horizon is longer than your goal.', 'appropriateness');
-    if (!allowed.has(product.id)) exclude('Above your risk comfort.', 'appropriateness');
+    const why = [], whyNot = [], ruleIds = [], ruleCards = [];
+    // Each exclusion cites the rule topic and the exact rule card (src/domain/rules.js) that drove it.
+    const exclude = (reason, rule, card) => {
+      whyNot.push(reason);
+      if (!ruleIds.includes(rule)) ruleIds.push(rule);
+      if (!ruleCards.includes(card)) ruleCards.push(card);
+    };
+    if (product.segment !== customer.segment) exclude('Different customer segment.', 'segment', 'segment-match');
+    if (horizon < product.minHorizonYears) {
+      exclude('Minimum horizon is longer than your goal.', 'appropriateness', 'horizon-fit');
+    }
+    if (!allowed.has(product.id)) exclude('Above your risk comfort.', 'appropriateness', 'demo-risk-cap');
     if (input.needsLiquidity && product.liquidity === 'locked') {
-      exclude('Money is locked for the agreed term.', 'early_withdrawal');
+      exclude('Money is locked for the agreed term.', 'early_withdrawal', 'term-lock');
     }
     if (!cap.bufferReady && product.id !== 'buffer-savings') {
-      exclude('Build the emergency buffer before investing.', 'buffer_policy');
+      exclude('Build the emergency buffer before investing.', 'buffer_policy', 'buffer-months');
     }
     if (product.liquidity === 'instant') why.push('Instant access.');
     if (product.id === 'business-deposit-ladder') why.push('Staggered maturities protect payroll and seasonal lows.');
@@ -80,7 +86,7 @@ function compare(customer, input, cap) {
       : !cap.bufferReady ? product.id === 'buffer-savings'
         : horizon <= 2 ? product.id === 'term-deposit' || product.id === 'buffer-savings'
           : product.id === 'diversified-fund';
-    return { ...product, eligible: !whyNot.length, why, whyNot, ruleIds,
+    return { ...product, eligible: !whyNot.length, why, whyNot, ruleIds, ruleCards,
       protection: rules.protectionOf(product.id), score: whyNot.length ? -whyNot.length : preferred ? 10 : 1 };
   }).sort((a, b) => b.score - a.score);
 }

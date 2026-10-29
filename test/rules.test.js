@@ -68,6 +68,9 @@ test('compare_products cites rule topics and protection without changing the top
   assert.deepEqual(ranked.find(item => item.id === 'business-deposit-ladder').ruleIds, ['segment']);
   assert.ok(ranked.find(item => item.id === 'stocks-etfs').ruleIds.includes('appropriateness'));
   for (const item of ranked) assert.equal(item.ruleIds.length > 0, item.whyNot.length > 0, item.id);
+  for (const item of ranked) assert.equal(item.ruleCards.length > 0, item.whyNot.length > 0, item.id);
+  assert.deepEqual(ranked.find(item => item.id === 'stocks-etfs').ruleCards, ['demo-risk-cap']);
+  for (const id of ranked.flatMap(item => item.ruleCards)) assert.ok(RULES.some(rule => rule.id === id), id);
   const elena = setup('elena').tools.execute('compare_products', { horizonYears: 1, riskComfort: 'low' }).products;
   assert.equal(elena[0].id, 'business-deposit-ladder');
   const liquid = setup('mihai').tools.execute('compare_products', { needsLiquidity: true, riskComfort: 'low' }).products;
@@ -82,7 +85,9 @@ test('deposit-protection questions are answered while return guarantees are stil
     assert.equal(safety.refusal(text, { firstName: 'Ioana' }), null, text);
   }
   for (const text of ['Can you guarantee 10% returns?', 'Guarantee me 10% returns', 'Garantează-mi 10%',
-    'Is my deposit guaranteed to earn 8%?']) {
+    'Is my deposit guaranteed to earn 8%?', 'Is my money guaranteed to double?',
+    'Is my deposit guaranteed to beat inflation?', "If the bank guarantees I won't lose anything, I'll invest",
+    'Banii mei sunt garantați să crească?']) {
     assert.equal(safety.refusal(text, { firstName: 'Ioana' }), 'guarantee', text);
   }
   assert.equal(safety.refusal(safety.withoutProtectionTerms('The deposit guarantee scheme covers deposits.')), null);
@@ -135,4 +140,19 @@ test('a live reply naming the deposit guarantee passes the reply guard', async (
   assert.equal(result.mode, 'agent');
   assert.equal(result.guardOutcome, 'passed');
   assert.ok(result.cards.some(card => card.type === 'rules'));
+});
+
+test('protection answers follow the named product and rules answers cite the card that caused the exclusion', async () => {
+  const ioana = setup();
+  await run({ ...ioana, text: 'medium', provider: create() });
+  const named = await run({ ...ioana, text: 'I have money in a term deposit, is it guaranteed?', provider: create() });
+  assert.ok(named.trace.some(item => item.tool === 'check_rules' && item.input?.productId === 'term-deposit'));
+  assert.match(named.text, /Term deposit is a bank deposit/);
+  assert.match(named.text, /100,000 EUR/);
+  const fresh = setup();
+  await run({ ...fresh, text: 'medium', provider: create() });
+  const blocked = await run({ ...fresh, text: "Why can't I buy stocks?", provider: create() });
+  assert.match(blocked.text, /Your risk answer caps the products offered/);
+  assert.match(blocked.text, /Bank-internal demo policy/);
+  assert.doesNotMatch(blocked.text, /Article 25/);
 });

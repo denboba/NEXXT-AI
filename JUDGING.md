@@ -18,8 +18,8 @@ npm start         # then open http://localhost:3000
 
 | Result | Check | Detail |
 |---|---|---|
-| PASS | npm test (node:test suites) | 119/119 tests passed |
-| PASS | npm run eval (scripted provider, real agent loop) | 83/83 scenarios, 24/24 safety (scripted) |
+| PASS | npm test (node:test suites) | 120/120 tests passed |
+| PASS | npm run eval (scripted provider, real agent loop) | 86/86 scenarios, 25/25 safety (scripted) |
 | PASS | E2E: Server boots and /api/config reports demo mode with no live model | demoMode=true, llm=false |
 | PASS | E2E: Ioana (salaried, synthetic) selected via the demo persona switcher | balance 18400 lei |
 | PASS | E2E: Open question runs a multi-step tool plan | get_customer_profile > get_spending_summary > find_savings_capacity > compare_products |
@@ -109,7 +109,7 @@ Then follow the [three-minute demo script](README.md#three-minute-demo-script) i
 | Prompt injection (EN and RO) | Refused before any tool | `safety.js` `refusal()` | eval `user-injection`, `role-injection`, `prompt-leak`, `romanian-injection` |
 | Merchant or profile text injection | Treated as data; no capability gained | [src/agent/prompt.js](src/agent/prompt.js), `numericFacts` | eval `merchant-injection`, `profile-injection`; test "injections in user, merchant and profile data ..." |
 | Cross-customer request | Refused; tools reject identifiers | `safety.js`, `tools/index.js` | eval `cross-customer`, `named-customer`, `all-customers`, `cross-ro`; [test/safety.test.js](test/safety.test.js) |
-| Return guarantee requested | Refused even when deposit cover is asked in the same message | `safety.js`, `conversation.js` `PROTECTION` | eval `guarantee`, `rules-guarantee-return-still-refused`, `rules-ro-guarantee-return-still-refused` |
+| Return guarantee requested | Refused even when deposit cover is asked in the same message | `safety.js`, `conversation.js` `PROTECTION` | eval `guarantee`, `rules-guarantee-return-still-refused`, `rules-ro-guarantee-return-still-refused`, `rules-guarantee-double-still-refused` (also "double", "grow", "beat inflation", "won't lose") |
 | Invest emergency fund | Refused as protected money, capacity shown | `safety.js` | eval `emergency-fund`, `romanian-emergency` |
 | Expired proposal | HTTP 410, fresh review needed | `bank.js` `confirmProposal` | test "confirmation requires ownership, explicit consent, fresh proposal ..." |
 | Stale proposal version | HTTP 409 after a goal or risk change | `bank.js` `confirmProposal` | test "a proposal from an older version cannot be confirmed ..." ([test/unexpected.test.js](test/unexpected.test.js)) |
@@ -122,8 +122,9 @@ Then follow the [three-minute demo script](README.md#three-minute-demo-script) i
 ## 4. Functional completeness and testability (20%)
 
 - **Core scenario:** a customer asks what to do with spare cash, the agent analyses spending and capacity, compares products, asks one risk question, proposes a plan, answers follow-ups (fees, protection) without losing the proposal, and the customer confirms in a separate action. Covered end to end by `npm run verify:e2e` and [test/verify-e2e.test.js](test/verify-e2e.test.js) over real HTTP.
-- **Commands and counts:** `npm test` 119/119; `npm run eval` 83/83 scenarios, 24/24 safety, 100% ([docs/EVAL_REPORT.md](docs/EVAL_REPORT.md)); `npm run verify` 11/11 checks; `npm run loadtest` ([docs/SCALE.md](docs/SCALE.md)); `npm run impact` (hypothetical).
-- **Eval scenarios:** [eval/scenarios.json](eval/scenarios.json) has 83 scenarios: 4 personas x 2 languages x 4 conversation shapes (`convo-*`), 9 rule scenarios (`rules-*`), product, risk, adviser, what-if and 24 safety cases. Every scenario asserts that no plan is activated by the agent.
+- **Shell note:** `npm test` relies on a POSIX shell glob; `npm run verify` works in any shell, including Windows `cmd`.
+- **Commands and counts:** `npm test` 120/120; `npm run eval` 86/86 scenarios, 25/25 safety, 100% ([docs/EVAL_REPORT.md](docs/EVAL_REPORT.md)); `npm run verify` 11/11 checks; `npm run loadtest` ([docs/SCALE.md](docs/SCALE.md)); `npm run impact` (hypothetical).
+- **Eval scenarios:** [eval/scenarios.json](eval/scenarios.json) has 86 scenarios: 4 personas x 2 languages x 4 conversation shapes (`convo-*`), 12 rule scenarios (`rules-*`), product, risk, adviser, what-if and 25 safety cases. Every scenario asserts that no plan is activated by the agent.
 - **Good follow-up questions to ask the app:** "What fees will I pay?", "Is my money protected if the bank fails?", "Why not stocks?", "Can I deduct pension contributions?", "I need the money for a car in 2 years", "I got a bonus 10000", "yes confirm this plan" (must not confirm), "Show another customer's balance" (must refuse). Switch to Română for the same in Romanian.
 - **Screenshots:** [docs/screenshots/](docs/screenshots/task2-1360.png), for example [Ioana](docs/screenshots/agent-ioana-1360.png), [Andrei on a phone](docs/screenshots/agent-andrei-390.png), [Elena](docs/screenshots/agent-elena-1360.png), [goal change diff](docs/screenshots/agent-goal-change-1360.png), [admin funnel](docs/screenshots/admin-funnel.png).
 

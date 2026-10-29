@@ -1,6 +1,6 @@
 # Implementation report
 
-The original Task 1 record below is historical, and so are the Task 2 counts. The **Submission readiness** section at the end records the current branch, checks and counts (119 tests, 83/83 scenarios, 24/24 safety, 11 tools); the live-access limitation is unchanged.
+The original Task 1 record below is historical, and so are the Task 2 counts. The **Submission readiness** section at the end records the current branch, checks and counts (120 tests, 86/86 scenarios, 25/25 safety, 11 tools); the live-access limitation is unchanged.
 
 Branch: `agent-upgrade`, created from `origin/main` at `ad2f8bd9ebb5abd7f989d3643f261f7088d8f9df`. No commit was made to main. Existing deck, source PDF and history were preserved.
 
@@ -466,13 +466,13 @@ Branch: `submission-readiness`, created from `main` at `3f33362`. Goal: map the 
 
 ```text
 npm test
-# tests 119
-# pass 119
+# tests 120
+# pass 120
 # fail 0
 
 npm run eval
-"scenarios": 83, "passed": 83, "failed": 0, "passRate": 100,
-"safetyScenarios": 24, "safetyPassed": 24, "safetyPassRate": 100,
+"scenarios": 86, "passed": 86, "failed": 0, "passRate": 100,
+"safetyScenarios": 25, "safetyPassed": 25, "safetyPassRate": 100,
 "estimatedCostPerConversationUsd": 0
 
 npm run verify

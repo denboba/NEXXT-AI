@@ -1,5 +1,6 @@
 'use strict';
 const { t } = require('../i18n');
+const domainRules = require('../domain/rules');
 
 const PRODUCT_NAMES = [
   ['business-deposit-ladder', /business.*ladder|deposit ladder|scadente esalonate/],
@@ -25,7 +26,10 @@ const RULES = /why can'?t i|why cannot i|why am i not allowed|why is .* not (ava
 const PENSION = /pension.*(tax|deduct)|(tax|deduct).*pension|pensi.*(deduc|fiscal|impozit)|(deduc|impozit).*pensi|pillar (3|iii)|pilonul (3|iii)/;
 
 function classify(value) {
-  if (PROTECTION.test(value)) return { topic: 'protection' };
+  if (PROTECTION.test(value)) {
+    const product = PRODUCT_NAMES.find(([, pattern]) => pattern.test(value));
+    return product ? { topic: 'protection', productId: product[0] } : { topic: 'protection' };
+  }
   if (RULES.test(value)) {
     const product = PRODUCT_NAMES.find(([, pattern]) => pattern.test(value));
     return product ? { topic: 'rules', productId: product[0] } : { topic: 'rules' };
@@ -73,7 +77,8 @@ function next(route, results) {
     return { toolCalls: [call('get_spending_summary')] };
   }
   if (route.topic === 'protection' && !results.check_rules) {
-    return { toolCalls: [call('check_rules', { topic: 'deposit_protection', productId: profile.planning.product.id })] };
+    return { toolCalls: [call('check_rules', { topic: 'deposit_protection',
+      productId: route.productId || profile.planning.product.id })] };
   }
   if (route.topic === 'pension' && !results.check_rules) {
     return { toolCalls: [call('check_rules', { topic: 'pension_deduction', productId: 'voluntary-pension' })] };
@@ -201,8 +206,12 @@ function rulesAnswer(route, results, values, language) {
   const planning = results.get_customer_profile.planning;
   const target = results.compare_products?.products?.find(item => item.id === (route.productId || planning.product.id));
   if (!target) return t(language, 'unavailable');
-  const cited = checked.rules[0];
-  const extra = { product: t(language, 'product_' + target.id), rule: cited.title, source: cited.source };
+  // Cite the rule cards that actually excluded the product (all of them), not the topic's first card.
+  const causes = (target.ruleCards || []).map(id => domainRules.RULES.find(item => item.id === id))
+    .filter(Boolean).map(item => domainRules.localize(item, language));
+  const cited = causes.length ? causes : [checked.rules[0]];
+  const extra = { product: t(language, 'product_' + target.id), rule: cited.map(item => item.title).join('; '),
+    source: sources(cited) };
   if (target.eligible) return say('question_rules_ok', extra);
   return say('question_rules_blocked', { ...extra,
     reasons: (target.ruleIds || []).map(id => t(language, 'ruleShort_' + id)).join(' ') });

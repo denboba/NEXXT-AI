@@ -3,7 +3,7 @@
 > **For the jury:** [JUDGING.md](JUDGING.md) maps each of the six assessment criteria to concrete files, tests and eval scenarios. To check everything in one command (Node 20+, no install):
 >
 > ```bash
-> npm run setup && npm run verify   # 119 tests, 83/83 scenarios (24/24 safety), end-to-end core scenario
+> npm run setup && npm run verify   # 120 tests, 86/86 scenarios (25/25 safety), end-to-end core scenario
 > ```
 >
 > Domain rules and constraints: [docs/DOMAIN.md](docs/DOMAIN.md). Users, value and adoption: [docs/BUSINESS.md](docs/BUSINESS.md).
@@ -33,7 +33,7 @@ flowchart LR
 
 Safety comes before conversion. Buffers, taxes and payroll are protected, product segment and suitability are checked on the server, model replies cannot invent numeric figures, and every activation needs the separate Confirm action. A chat message saying “yes” cannot activate a plan. Debits are separate demo actions and also preserve protected reserves. Merchant and profile text are untrusted data; tools accept no customer identifier.
 
-**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **83/83 scripted scenarios**, including **24/24 safety scenarios**; `npm test` runs **119 tests** and `npm run verify` passes **11/11 checks**. This is deterministic CI evidence, not a live-model score. The configured Bedrock smoke run returned **0/5 live passes (HTTP 403 access denied)**; full live quality remains unvalidated and the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 409.49 requests/sec**, p50 **13.3 ms**, p95 **65.78 ms**, p99 **92.04 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
+**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **86/86 scripted scenarios**, including **25/25 safety scenarios**; `npm test` runs **120 tests** and `npm run verify` passes **11/11 checks**. This is deterministic CI evidence, not a live-model score. The configured Bedrock smoke run returned **0/5 live passes (HTTP 403 access denied)**; full live quality remains unvalidated and the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 409.49 requests/sec**, p50 **13.3 ms**, p95 **65.78 ms**, p99 **92.04 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
 
 ### Run in 60 seconds
 
@@ -57,6 +57,8 @@ npm run smoke:live             # exit 2 with no key; exit 1 on a failed live pat
 npm run impact -- --visitors=10000 --chatRate=0.15 --accountRate=0.3 --activationRate=0.35 --monthly=300
 npm run loadtest -- --concurrency=10 --journeys=20 --write-report
 ```
+
+`npm test` uses a shell glob (`test/*.test.js`), so it needs a POSIX shell (bash, zsh, Git Bash, WSL). `npm run verify` lists the test files itself and works in any shell, including Windows `cmd`.
 
 `npm run eval` writes the latest executed report. Live mode fails a quality scenario when a normal turn falls back to offline, preventing a fallback from being counted as live success. `loadtest` uses an isolated temporary JSON store, cycles all four personas and stops at a proposal; it never calls a provider or moves money. A larger burst can exit 1 with HTTP 429; that is an honest failed run.
 
@@ -122,7 +124,7 @@ New-account onboarding still enforces details → ID number → selfie → OTP s
 Every activation requires a validated proposal followed by the separate Confirm endpoint. Demo top-ups and scheduled-debit stand-ins are explicit account actions; debits protect the buffer and obligations. Repeated presentations use the header reset, rather than deleting the database. `/admin` shows the original funnel plus `context_connected`, conversation/tool/mode/cost metrics and the adviser queue.
 
 ```bash
-npm test      # 119 tests: original flows plus tools, rules, conversation, providers, progress, confirmation, safety, unexpected situations and the end-to-end jury scenario
+npm test      # 120 tests: original flows plus tools, rules, conversation, providers, progress, confirmation, safety, unexpected situations and the end-to-end jury scenario
 ```
 
 ## How it is built

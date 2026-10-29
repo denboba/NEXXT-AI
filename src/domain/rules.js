@@ -70,7 +70,7 @@ const DEFINITIONS = [
       + 'deposit scheme and it does not protect against market losses.',
     constraint: { scheme: 'FGDSPP', coversMarketLosses: false },
     exception: 'Cover applies only in the situations defined by the scheme rules.',
-    source: 'Fondul de Garantare a Drepturilor din Sistemul de Pensii Private (FGDSPP); Law 204/2006; ASF',
+    source: 'Fondul de Garantare a Drepturilor din Sistemul de Pensii Private (FGDSPP); Law 187/2011; ASF',
     ro: { title: 'Drepturile de pensie privată au un fond separat',
       statement: 'Drepturile de pensie privată sunt protejate de o schemă separată, cu propriile condiții. Nu este '
         + 'schema depozitelor și nu protejează împotriva pierderilor din piață.',

@@ -140,7 +140,7 @@
   "question_pension": "{product}: contribuțiile sunt deductibile din venitul impozabil până la echivalentul în lei a {cap} EUR pe an, per participant (sursa: {source}). Nu calculez impozitul tău personal; un consultant îl poate confirma. Propunerea actuală nu se modifică.",
   "taxLine_pfa": "Ca PFA, impozitul pe venit și contribuțiile sociale se plătesc prin declarația unică anuală, de aceea rezerva rămâne protejată (sursa: {source}).",
   "taxLine_scope": "Regula aplicată: {rule} (sursa: {source}).",
-  "question_rules_blocked": "{product} nu îți este disponibil acum. {reasons} Regula principală: {rule} (sursa: {source}). Propunerea existentă nu se modifică.",
+  "question_rules_blocked": "{product} nu îți este disponibil acum. {reasons} Regulile aplicate: {rule} (sursa: {source}). Propunerea existentă nu se modifică.",
   "question_rules_ok": "{product} trece verificările actuale pentru segment, orizont, răspunsul despre risc și rezervă. Regula care se aplică în continuare: {rule} (sursa: {source}). Propunerea existentă nu se modifică.",
   "ruleShort_segment": "Este destinat altui segment de clienți.",
   "ruleShort_appropriateness": "Nu se potrivește cu orizontul obiectivului sau cu răspunsul tău despre risc.",
