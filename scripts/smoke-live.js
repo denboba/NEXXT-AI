@@ -12,6 +12,16 @@ const PROMPTS = [
   ['ioana', 'I need the money for a car in 2 years'],
 ];
 
+// A turn fell back when the offline planner produced (part of) the answer.
+const fellBack = result => result.mode !== 'agent' || Boolean(result.fallbackReason);
+// Pure verdict for one turn and for the run, so the exit rule is testable without a network.
+function verdict(result, env = {}) {
+  const fallback = fellBack(result);
+  if (fallback) return { pass: env.SMOKE_ALLOW_FALLBACK === '1', fallback };
+  return { pass: ['passed', 'retried'].includes(result.guardOutcome), fallback };
+}
+const exitCodeFor = (results, env = {}) => results.every(result => verdict(result, env).pass) ? 0 : 1;
+
 async function main() {
   const env = loadLocalEnv();
   const provider = select({ env });
@@ -39,25 +49,33 @@ async function main() {
       if (!response.ok) throw new Error('Local app HTTP ' + response.status);
       return data;
     }
-    const rows = [];
+    const rows = [], results = [];
+    const allow = { SMOKE_ALLOW_FALLBACK: process.env.SMOKE_ALLOW_FALLBACK || env.SMOKE_ALLOW_FALLBACK };
     for (const [persona, prompt] of PROMPTS) {
       if (!clients.has(persona)) {
         await post(persona, '/api/journey', {});
         await post(persona, '/api/persona', { persona });
       }
       const result = await post(persona, '/api/agent', { text: prompt });
-      const pass = result.mode === 'agent' && ['passed', 'retried'].includes(result.guardOutcome);
+      const { pass, fallback } = verdict(result, allow);
+      results.push(result);
       const tools = result.trace.filter(item => item.kind !== 'provider').map(item => item.tool);
-      rows.push({ persona, result: pass ? 'PASS' : 'FAIL', mode: result.mode,
+      rows.push({ persona, result: pass ? (fallback ? 'FALLBACK (allowed)' : 'PASS') : 'FAIL', mode: result.mode,
+        fallback: fallback ? result.fallbackReason || 'offline' : '',
         tools: tools.join(' → '), totalMs: result.latencyMs, guard: result.guardOutcome });
       console.log(JSON.stringify({ persona, mode: result.mode, tools, totalMs: result.latencyMs,
-        providerCalls: result.providerCalls, usage: result.usage, guard: result.guardOutcome,
+        model: result.model, fallback, providerCalls: result.providerCalls, usage: result.usage, guard: result.guardOutcome,
         error: result.fallbackReason, hint: result.fallbackHint, estimatedCostUsd: result.estimatedCostUsd }, null, 2));
-      if (!pass) process.exitCode = 1;
+      if (fallback) console.error('Turn fell back to the offline planner: ' + (result.fallbackReason || result.mode)
+        + (allow.SMOKE_ALLOW_FALLBACK === '1' ? ' (allowed by SMOKE_ALLOW_FALLBACK=1)' : ''));
     }
     console.table(rows);
+    process.exitCode = exitCodeFor(results, allow);
     console.log('Synthetic local app only; no plan confirmation or bank operation was invoked.');
   } finally { await new Promise(resolve => server.close(resolve)); }
 }
 
-main().catch(() => { console.error('Live smoke failed in the local harness. Check secure configuration.'); process.exitCode = 1; });
+if (require.main === module) {
+  main().catch(() => { console.error('Live smoke failed in the local harness. Check secure configuration.'); process.exitCode = 1; });
+}
+module.exports = { verdict, exitCodeFor, fellBack };

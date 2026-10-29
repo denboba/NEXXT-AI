@@ -48,7 +48,7 @@ const S = {
   error: null,
   config: {},
   personas: [],
-  agent: { mode: 'offline', trace: [], usage: {} },
+  agent: { mode: null, trace: [], usage: {} },
   progress: null,
   progressTimer: null,
   activityOpen: null,
@@ -62,7 +62,7 @@ async function boot() {
     S.config = await api('GET', '/api/config');
     if (S.config.demoMode) S.personas = (await api('GET', '/api/personas')).personas;
     S.snap = await api('POST', '/api/journey', { source: q.get('src'), campaign: q.get('cmp'), language: I18n.language });
-    S.agent = { ...S.agent, ...pick(S.snap, ['mode','trace','decisions','usage','estimatedCostUsd','fallbackReason']) };
+    S.agent = { ...S.agent, ...pick(S.snap, ['mode','model','trace','decisions','usage','estimatedCostUsd','fallbackReason','refusalReason']) };
     if (q.has('src')) history.replaceState(null, '', '/');
     if (S.snap.user) await loadMe();
     S.years = S.snap.profile.years || 5;
@@ -109,13 +109,21 @@ async function send(input, path = '/api/chat') {
   S.progressTimer = setTimeout(poll, 200);
   try {
     const r = await api('POST', path, { ...input, turnId });
-    S.agent = { ...S.agent, ...pick(r, ['mode','trace','decisions','usage','estimatedCostUsd','fallbackReason','providerCalls','refusalReason']) };
+    S.agent = { ...S.agent, ...pick(r, ['mode','model','trace','decisions','usage','estimatedCostUsd','fallbackReason','providerCalls','refusalReason']) };
     S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user', 'proposalVersion', 'sampleProfile', 'requiresReplan']), messages: r.history };
     if (S.snap.profile.years) S.years = S.snap.profile.years;
     await refreshPanel();
   } catch (e) { S.error = e.message; }
   clearTimeout(S.progressTimer); S.pending = false; S.progress = null; render();
 }
+
+// Badge: the last turn's mode wins; before any turn, the configured provider decides.
+function modeLabel() {
+  const live = S.agent.mode === 'agent' || (!S.agent.mode && S.config?.llm);
+  const model = (S.agent.mode === 'agent' && S.agent.model) || S.config?.model || S.config?.provider || '';
+  return live ? t('modeLive', { model }) : t('modeOfflinePlanner');
+}
+const fallbackText = code => t(['auth', 'timeout', 'throttled', 'guard_rejection'].includes(code) ? 'fallback_' + code : 'fallbackProvider');
 
 function lastCoachWithWidgetIndex() {
   const ms = S.snap.messages;
@@ -133,6 +141,7 @@ function chatCard() {
     const bubble = h('div', { class: `msg ${m.role}` }, m.text);
     (m.widgets || []).forEach((w) => bubble.append(renderWidget(w, { active: i === activeIdx || (w.type !== 'chips' && i === lastIdx) || w.type === 'cta' || w.type === 'sim', i })));
     list.append(bubble);
+    if (m.role === 'coach' && m.fallback) list.append(h('p', { class: 'turn-fallback', role: 'status' }, fallbackText(m.fallback)));
   });
   if (S.pending) list.append(h('div', { class: 'typing', role: 'status' }, t('working')));
   if (S.error) list.append(h('p', { class: 'err' }, S.error));
@@ -142,7 +151,7 @@ function chatCard() {
     input, h('button', { class: 'btn', type: 'submit', disabled: S.pending }, t("send")));
 
   return h('section', { class: 'card chat' },
-    h('div', { class: 'chat-head' }, h('b', null, t("coach")), h('span', {class:'mode', 'aria-label':t('answerMode')}, S.agent.mode)),
+    h('div', { class: 'chat-head' }, h('b', null, t("coach")), h('span', {class:'mode', 'aria-label':t('answerMode')}, modeLabel())),
     persona ? h('div',{class:'suggestions'},
       ['prompt_', 'whatif_', 'question_'].map(prefix => h('button', { class: 'chip', disabled: S.pending,
         onclick: () => send({ type: 'text', text: t(prefix + persona) }) }, t(prefix + persona))),
@@ -476,7 +485,7 @@ function renderNav() {
       if(!event.target.value) return;
       try {
         const result=await api('POST','/api/persona',{persona:event.target.value});
-        S.snap=result; S.me=result; S.view='chat'; S.agent={mode:'offline',trace:[],usage:{}};
+        S.snap=result; S.me=result; S.view='chat'; S.agent={mode:null,trace:[],usage:{}};
         S.years=5; await refreshPanel(); render();
       } catch(error) {S.error=error.message;render();}
     }},h('option',{value:''},t('choosePersona')),S.personas.map(persona=>h('option',{value:persona.id},t('persona_'+persona.id))));
@@ -486,7 +495,7 @@ function renderNav() {
       if (!confirm(t('resetWarning'))) return;
       try {
         await api('POST', '/api/demo/reset');
-        S.me = null; S.agent = { mode: 'offline', trace: [], usage: {} }; S.view = 'chat';
+        S.me = null; S.agent = { mode: null, trace: [], usage: {} }; S.view = 'chat';
         await boot();
       } catch (error) { S.error = error.message; render(); }
     } }, t('resetDemo')));
@@ -520,7 +529,7 @@ function activityPanel() {
   const usage=S.agent.usage || {};
   return h('details',{id:'activity',class:'card activity',open: S.activityOpen ?? (S.config.demoMode && !matchMedia('(max-width: 600px)').matches),
     ontoggle: event => { S.activityOpen = event.currentTarget.open; }},
-    h('summary',null,t('activity'),' · ',h('span',{class:'mode'},S.agent.mode)),
+    h('summary',null,t('activity'),' · ',h('span',{class:'mode'},modeLabel())),
     h('p',{class:'disc'},S.pending?t('working'):t('activityExplanation')),
     S.pending ? h('p',{role:'status',class:'progress-live'},
       t('elapsed',{seconds:Math.floor((S.progress?.elapsedMs || 0)/1000)}),
@@ -529,8 +538,7 @@ function activityPanel() {
           :event.type==='fallback'?t('progress_fallback'):event.type==='provider_retry'?t('progress_retry'):t('progress_provider'))))) : null,
     h('p',null,t('tokens')+': '+(usage.complete===false?t('unknownUsage'):((usage.inputTokens || 0)+(usage.outputTokens || 0))), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
     S.agent.fallbackReason && !S.agent.refusalReason ? h('p', { class: 'disc', role: 'status' },
-      t(['auth', 'timeout', 'throttled', 'guard_rejection'].includes(S.agent.fallbackReason)
-        ? 'fallback_' + S.agent.fallbackReason : 'fallbackProvider')) : null,
+      fallbackText(S.agent.fallbackReason)) : null,
     !S.pending && !S.agent.trace?.length ? h('p', { class: 'disc' }, t('emptyActivity')) : null,
     S.agent.trace?.length ? h('p', { class: 'timeline-head' },
       t('timelineMode') + ': ' + (S.agent.mode === 'agent' ? t('modeAgent') : t('modeOffline'))

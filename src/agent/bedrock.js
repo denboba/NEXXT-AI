@@ -24,7 +24,7 @@ function messagesFor(messages) {
 
 function create({ env, fetchImpl = fetch }) {
   return {
-    name: 'bedrock',
+    name: 'bedrock', model: env.BEDROCK_MODEL_ID || null,
     async complete({ system, context, messages, tools, signal, callTimeoutMs, deadline, onEvent }) {
       if (!/^[a-z]{2}(?:-gov)?-[a-z]+-\d$/.test(env.AWS_REGION || '')) throw failure('bad_request');
       const modelHint = 'Check BEDROCK_MODEL_ID: use a foundation model ID or inference profile ID/ARN, not a display name.';

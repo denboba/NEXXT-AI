@@ -352,6 +352,8 @@
   "timelineMode": "Mod",
   "modeAgent": "agent live",
   "modeOffline": "planificator offline",
+  "modeLive": "Live · {model}",
+  "modeOfflinePlanner": "Planificator offline",
   "timelineFallback": "rezervă",
   "timelineProviderCalls": "apeluri model",
   "timelineSteps": "pași unelte",

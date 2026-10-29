@@ -340,6 +340,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   emit({ type: 'complete', mode, code: fallbackReason || 'ok' });
   const graph = decisionGraph({ input, reason, results, trace, guardOutcome, mode, risk: journey.coach?.profile.risk });
   return {text:final,cards,trace,decisions:graph.nodes,decisionEdges:graph.edges,providerCalls,guardOutcome,mode,usage,estimatedCostUsd:cost,
-    latencyMs:ms,refusalReason:reason,fallbackReason,fallbackHint,promptVersion:VERSION,streamedText:streamed.join(' ')};
+    latencyMs:ms,refusalReason:reason,fallbackReason,fallbackHint,promptVersion:VERSION,streamedText:streamed.join(' '),
+    model:mode==='agent'?provider?.model || null:null};
 }
 module.exports={run,numericFacts};

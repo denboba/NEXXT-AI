@@ -31,6 +31,7 @@ h2{font-size:30px}h3{font-size:22px}
 .msg{max-width:88%;padding:12px 18px;border-radius:18px;white-space:pre-wrap}
 .msg.coach{background:#fff;border:2px solid var(--line);align-self:flex-start}
 .msg.user{background:var(--ink);color:#F4F2EC;align-self:flex-end}
+.turn-fallback{align-self:flex-start;max-width:88%;margin:-4px 0 0 6px;font-size:14px;color:var(--mute);border-left:3px solid #FFE11A;padding-left:8px}
 .typing{align-self:flex-start;color:var(--mute);padding:6px 14px}
 .widget{margin-top:12px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}

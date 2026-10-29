@@ -352,6 +352,8 @@
   "timelineMode": "Mode",
   "modeAgent": "live agent",
   "modeOffline": "offline planner",
+  "modeLive": "Live · {model}",
+  "modeOfflinePlanner": "Offline planner",
   "timelineFallback": "fallback",
   "timelineProviderCalls": "model calls",
   "timelineSteps": "tool steps",

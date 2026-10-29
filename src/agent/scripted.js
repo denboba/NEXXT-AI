@@ -2,7 +2,7 @@
 const offline=require('./offline');
 function create(sequence) {
   let index=0;
-  return {name:'scripted',async complete(request) {
+  return {name:'scripted',model:'scripted',async complete(request) {
     if(sequence) {
       const item=sequence[index++];
       if(typeof item==='function') return item(request);

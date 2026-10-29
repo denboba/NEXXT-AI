@@ -151,8 +151,12 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
   const route = (method, pattern, opts, handler) => routes.push({ method,
     re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), opts, handler });
 
-  route('GET', '/api/config', {}, () => ({ demoMode: demo, llm: Boolean(select({ env, fetchImpl })),
-    synthetic: true, limits: engine.LIMITS, assumptions: engine.DEFAULTS }));
+  // Effective provider (an injected one wins); only its name and model id are exposed, never keys.
+  route('GET', '/api/config', {}, () => {
+    const live = provider === undefined ? select({ env, fetchImpl }) : provider;
+    return { demoMode: demo, llm: Boolean(live), provider: live?.name || null, model: live?.model || null,
+      synthetic: true, limits: engine.LIMITS, assumptions: engine.DEFAULTS };
+  });
   route('GET', '/api/simulate', {}, ({ query }) => engine.simulate({
     monthly: Number(query.get('monthly')), years: Number(query.get('years') || 5),
   }));
@@ -257,6 +261,8 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
       const at = new Date().toISOString();
       j.messages.push({id:++j.msgSeq,role:'user',text:require('./agent/safety').clean(body.text),at});
       const message = {id:++j.msgSeq,role:'coach',text:result.text,widgets:result.cards,at};
+      // The fallback stays on this turn's message so the chat shows which answer came from the offline planner.
+      if (result.fallbackReason && !result.refusalReason) message.fallback = result.fallbackReason;
       j.messages.push(message);
       const {text,...meta} = result;
       j.lastAgent = meta;

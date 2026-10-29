@@ -2,8 +2,9 @@
 const { requestJSON, failure } = require('./http');
 
 function create({ env, fetchImpl = fetch }) {
+  const model = env.COACH_MODEL || 'gpt-4.1-mini';
   return {
-    name: 'openai',
+    name: 'openai', model,
     async complete({ system, context, messages, tools, signal, callTimeoutMs, deadline, onEvent }) {
       const url = new URL(env.COMPAT_BASE_URL || 'https://api.openai.com/v1');
       const local = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname);
@@ -21,7 +22,7 @@ function create({ env, fetchImpl = fetch }) {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.COMPAT_API_KEY },
         body: JSON.stringify({
-          model: env.COACH_MODEL || 'gpt-4.1-mini', max_tokens: 800,
+          model, max_tokens: 800,
           messages: [{ role: 'system', content: context ? system + '\n' + context : system }, ...converted],
           tools: tools.map(tool => ({ type: 'function', function: {
             name: tool.name, description: tool.description, parameters: tool.inputSchema,

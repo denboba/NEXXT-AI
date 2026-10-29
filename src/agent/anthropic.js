@@ -89,8 +89,9 @@ function firstTokenMs(env) {
 }
 
 function create({ env, fetchImpl = fetch }) {
+  const model = env.COACH_MODEL || 'claude-sonnet-5-5';
   return {
-    name: 'anthropic',
+    name: 'anthropic', model,
     async complete({ system, context, messages, tools, signal, callTimeoutMs, deadline, onEvent }) {
       // Static rules are cached; the per-session context is a second, uncached block. The API rejects
       // empty text blocks, so the second block is only sent when context is a non-empty string.
@@ -104,7 +105,7 @@ function create({ env, fetchImpl = fetch }) {
           'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: env.COACH_MODEL || 'claude-sonnet-5-5', max_tokens: 800, temperature: 0, stream: true,
+          model, max_tokens: 800, temperature: 0, stream: true,
           system: blocks, messages: messagesFor(messages),
           tools: tools.map(tool => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema })),
         }),
