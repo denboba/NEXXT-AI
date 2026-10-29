@@ -3,6 +3,7 @@ const products = require('../products');
 const engine = require('../engine');
 const bank = require('../bank');
 const { spending, capacity } = require('./finance');
+const rules = require('../domain/rules');
 const schema = (properties = {}, required = []) => ({ type: 'object', properties, required, additionalProperties: false });
 const number = (minimum, maximum) => ({ type: 'number', minimum, maximum });
 const string = (maxLength = 200) => ({ type: 'string', maxLength });
@@ -32,6 +33,10 @@ const SPECS = [
   }, ['productId', 'monthly'])],
   ['request_authentication', 'Offer the existing sign-up or login flow.', schema({ kind: enumeration(['signup', 'login']) }, ['kind'])],
   ['handoff_to_adviser', 'Request an adviser with the conversation attached.', schema({ reason: string(300) }, ['reason'])],
+  ['check_rules', 'Look up the bank and regulatory rules that constrain a product or decision. '
+    + 'Informational, not legal or tax advice.', schema({
+    topic: enumeration(rules.TOPICS), productId: string(80),
+  }, ['topic'])],
 ].map(([name, description, inputSchema]) => ({ name, description, inputSchema }));
 
 function valid(value, spec) {
@@ -56,12 +61,24 @@ function compare(customer, input, cap) {
   const risk = input.riskComfort || 'low';
   const allowed = new Set(products.allowedFor(risk).map(p => p.id));
   return products.PRODUCTS.map(product => {
-    const why = [], whyNot = [];
-    if (product.segment !== customer.segment) whyNot.push('Different customer segment.');
-    if (horizon < product.minHorizonYears) whyNot.push('Minimum horizon is longer than your goal.');
-    if (!allowed.has(product.id)) whyNot.push('Above your risk comfort.');
-    if (input.needsLiquidity && product.liquidity === 'locked') whyNot.push('Money is locked for the agreed term.');
-    if (!cap.bufferReady && product.id !== 'buffer-savings') whyNot.push('Build the emergency buffer before investing.');
+    const why = [], whyNot = [], ruleIds = [], ruleCards = [];
+    // Each exclusion cites the rule topic and the exact rule card (src/domain/rules.js) that drove it.
+    const exclude = (reason, rule, card) => {
+      whyNot.push(reason);
+      if (!ruleIds.includes(rule)) ruleIds.push(rule);
+      if (!ruleCards.includes(card)) ruleCards.push(card);
+    };
+    if (product.segment !== customer.segment) exclude('Different customer segment.', 'segment', 'segment-match');
+    if (horizon < product.minHorizonYears) {
+      exclude('Minimum horizon is longer than your goal.', 'appropriateness', 'horizon-fit');
+    }
+    if (!allowed.has(product.id)) exclude('Above your risk comfort.', 'appropriateness', 'demo-risk-cap');
+    if (input.needsLiquidity && product.liquidity === 'locked') {
+      exclude('Money is locked for the agreed term.', 'early_withdrawal', 'term-lock');
+    }
+    if (!cap.bufferReady && product.id !== 'buffer-savings') {
+      exclude('Build the emergency buffer before investing.', 'buffer_policy', 'buffer-months');
+    }
     if (product.liquidity === 'instant') why.push('Instant access.');
     if (product.id === 'business-deposit-ladder') why.push('Staggered maturities protect payroll and seasonal lows.');
     if (!whyNot.length) why.push('Fits the segment, horizon and risk limits.');
@@ -69,7 +86,8 @@ function compare(customer, input, cap) {
       : !cap.bufferReady ? product.id === 'buffer-savings'
         : horizon <= 2 ? product.id === 'term-deposit' || product.id === 'buffer-savings'
           : product.id === 'diversified-fund';
-    return { ...product, eligible: !whyNot.length, why, whyNot, score: whyNot.length ? -whyNot.length : preferred ? 10 : 1 };
+    return { ...product, eligible: !whyNot.length, why, whyNot, ruleIds, ruleCards,
+      protection: rules.protectionOf(product.id), score: whyNot.length ? -whyNot.length : preferred ? 10 : 1 };
   }).sort((a, b) => b.score - a.score);
 }
 function createTools({ store, journey }) {
@@ -180,6 +198,16 @@ function createTools({ store, journey }) {
       });
       store.save();
       return { requested: true, ui: { type: 'handoff', requested: true } };
+    },
+    check_rules({ topic, productId }) {
+      const product = productId ? products.byId(productId) : null;
+      if (productId && !product) throw new bank.BankError('Unknown product for the rules lookup.');
+      const language = journey.language === 'ro' ? 'ro' : 'en';
+      const matching = rules.byTopic(topic, productId).map(rule => rules.localize(rule, language));
+      const summary = product ? { id: product.id, name: product.name, protection: rules.protectionOf(product.id) } : null;
+      const disclaimer = rules.DISCLAIMER[language];
+      return { topic, rulesVersion: rules.VERSION, rules: matching, product: summary, disclaimer,
+        ui: { type: 'rules', topic, product: summary, rules: matching, disclaimer } };
     },
   };
   return { specs: SPECS, execute(name, input = {}) {

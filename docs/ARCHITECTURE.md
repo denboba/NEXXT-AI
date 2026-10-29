@@ -8,7 +8,9 @@ The app is a dependency-free CommonJS Node HTTP service. There is no build step.
 |---|---|
 | `src/data/personas.js` | Seeded PRNG, fixed synthetic date, four profiles, twelve months of transactions, repeatable opening/final balances. Uses one canonical Ioana identity for phone/email and persona access. A repeatable migration archives the duplicate legacy seed while preserving its net ledger activity and references. |
 | `src/tools/finance.js` | Spending summaries and deterministic buffer, obligation, surplus, micro-saving and ladder calculations. Negative surplus stays negative. |
-| `src/tools/index.js` | Validated JSON-schema-style tool definitions, session-only context, data cards and controlled proposal/risk/handoff operations. No tool activates plans or accepts another customer ID. |
+| `src/tools/index.js` | 11 validated JSON-schema-style tool definitions, session-only context, data cards and controlled proposal/risk/handoff operations. No tool activates plans or accepts another customer ID. |
+| `src/domain/rules.js` | 18 frozen, versioned rule cards over 7 topics (deposit protection, early withdrawal, appropriateness, pension deduction, tax scope, buffer policy, segment), each with source, exception and as-of date, in English and Romanian. Exposes `byTopic()`, `localize()` and `protectionOf()`. Summaries to be verified by bank compliance; see [DOMAIN.md](DOMAIN.md). |
+| `check_rules` tool | The 11th tool in `src/tools/index.js`: validated `topic` and optional `productId`, returns localized cited rules, the product's protection label and a disclaimer as a `rules` card. `compare_products` also attaches rule topic ids and protection to each product. |
 | `src/agent/provider.js` and adapters | Anthropic Messages, compatible Chat Completions and Bedrock Converse normalized to text/tool calls/usage. Tests use a replayable scripted provider. |
 | `src/agent/agent.js` | Six tool-iteration ceiling, 30-second default deadline (`LLM_TIMEOUT_MS`, max 60 s), token budget, tool execution, trace, guard retry, bounded memory, pricing and deterministic fallback. |
 | `src/agent/prompt.js` | Versioned policy separating system instructions from untrusted customer/tool/profile/merchant data. |
@@ -17,6 +19,7 @@ The app is a dependency-free CommonJS Node HTTP service. There is no build step.
 | `src/bank.js` | Ordered onboarding, OTP/approval demo, suitability and affordability, immutable proposals, separate confirmation, account ledger and explicit demo debit. |
 | `src/store.js` | JSON-file persistence or in-memory tests. It exposes a small store boundary, but callers still mutate `db`; migration to a real database requires scoped repository methods and transactions. |
 | `src/analytics.js` | Original funnel plus planning mode/cost/tool/refusal and proposal-conversion metrics. |
+| `scripts/verify.js` | One-command jury verification: runs `node --test`, the scripted eval and an end-to-end HTTP walk of the core scenario on an isolated in-memory store with the provider forced offline. Exports `runE2E`, `runTests`, `runEval`; `--e2e-only` runs the HTTP walk only. Used by CI ([../.github/workflows/ci.yml](../.github/workflows/ci.yml)). |
 | `public/` | Vanilla DOM rendering, trustworthy cards from tools, activity trace, persona/language controls and admin. Uses text nodes for all customer/merchant/model strings. |
 
 ## Data flow

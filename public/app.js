@@ -183,7 +183,7 @@ function renderWidget(w, { active }) {
   }
   if (w.type === 'products') return productsWidget(w, active);
   if (w.type === 'handoff_form') return handoffForm();
-  if (['budget','capacity','compare','simulation','plan_proposal','what_if','auth','handoff','risk_set'].includes(w.type)) return agentCard(w);
+  if (['budget','capacity','compare','simulation','plan_proposal','what_if','auth','handoff','risk_set','rules'].includes(w.type)) return agentCard(w);
   return document.createTextNode('');
 }
 
@@ -551,7 +551,7 @@ function agentCardContent(card) {
   const row=(label,value)=>h('div',{class:'kv'},h('span',null,label),h('b',null,value));
   const money=value=>fmt(value)+' lei';
   const required = { budget: 'categories', capacity: 'asOf', compare: 'products', simulation: 'sim',
-    plan_proposal: 'proposal', what_if: 'after' }[type];
+    plan_proposal: 'proposal', what_if: 'after', rules: 'rules' }[type];
   if (card.error || required && !card[required]) {
     box.append(h('p', { role: 'status' }, t(card.error ? 'cardError' : 'cardEmpty')));
     return box;
@@ -572,8 +572,15 @@ function agentCardContent(card) {
     const table=h('table',{class:'comparison'},h('thead',null,h('tr',null,[t('product'),t('fit'),t('why')].map(label=>h('th',{scope:'col'},label)))),h('tbody',null,card.products.map(product=>h('tr',null,
       h('th',{scope:'row'},t('product_'+product.id)),
       h('td',null,product.eligible?t('fits'):t('notFit')),
-      h('td',null,h('ul',null,[...product.why,...product.whyNot].map(reason=>h('li',null,t('reason_'+reason)))),h('small',null,t('liquidity')+': '+t('liquidity_'+product.liquidity)+' · '+t('minimumHorizon')+': '+product.minHorizonYears.toLocaleString(I18n.locale)+' · '+t('annualFee')+': '+product.annualFeePct.toLocaleString(I18n.locale)+'%'))))));
+      h('td',null,h('ul',null,[...product.why,...product.whyNot].map(reason=>h('li',null,t('reason_'+reason)))),h('small',null,t('liquidity')+': '+t('liquidity_'+product.liquidity)+' · '+t('minimumHorizon')+': '+product.minHorizonYears.toLocaleString(I18n.locale)+' · '+t('annualFee')+': '+product.annualFeePct.toLocaleString(I18n.locale)+'%'+(product.protection?' · '+t('protection')+': '+t('protection_'+product.protection):'')))))));
     box.append(h('div',{class:'table-wrap',tabindex:0,'aria-label':t('comparisonScroll')},table),h('p',{class:'disc'},t('illustrativeFees')));
+  } else if(type==='rules') {
+    // Rule text is tool data: rendered through text nodes only.
+    box.append(h('p',null,t('rulesTopic_'+card.topic)+(card.product?' · '+t('product_'+card.product.id)+' · '+t('protection_'+card.product.protection):'')),
+      h('ul',{class:'rules-list'},card.rules.map(rule=>h('li',null,h('b',null,rule.title),h('p',null,rule.statement),
+        rule.exception?h('p',{class:'disc'},t('ruleException')+': '+rule.exception):null,
+        h('small',null,t('ruleSource')+': '+rule.source+' · '+t('ruleVerify',{asOf:rule.asOf}))))),
+      card.disclaimer?h('p',{class:'disc'},card.disclaimer):null);
   } else if(type==='simulation') {
     box.append(row(t('paidIn'),money(card.sim.contributed)),row(t('fund'),money(card.sim.fund)),row(t('cashReal'),money(card.sim.cashReal)),row(t('stressCase'),money(card.stressFund)),lineChart(card.sim),h('p',{class:'disc'},t('assumptions',{inflation:(card.sim.assumptions.inflation*100).toLocaleString(I18n.locale),rate:(card.sim.assumptions.fundReturn*100).toLocaleString(I18n.locale)})));
   } else if(type==='plan_proposal') {

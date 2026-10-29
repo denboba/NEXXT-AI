@@ -63,8 +63,8 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     emit({ type: 'tool_start', tool: call.name });
     const output=execute(call.name,call.input);
     results[call.name]=output;
-    if(output.ui && (!input.conversation || ['market', 'inflation'].includes(input.conversation.topic)
-      && output.ui.type === 'simulation')) cards.push(output.ui);
+    if(output.ui && (!input.conversation || output.ui.type === 'rules' || ['market', 'inflation']
+      .includes(input.conversation.topic) && output.ui.type === 'simulation')) cards.push(output.ui);
     trace.push({ tool: call.name, input: call.input, summary: output.error ? 'rejected' : output.ui?.type || 'profile',
       ms: Number((performance.now() - started).toFixed(2)), error: Boolean(output.error) });
     emit({ type: 'tool_end', tool: call.name, code: output.error ? 'rejected' : 'ok' });
@@ -158,7 +158,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         const reply=String(response.text || '').trim();
         const facts=JSON.stringify(numericFacts(Object.values(results)));
         // No recommendation can skip the authoritative capacity check.
-        const replyReason=safety.refusal(reply.replace(/not guaranteed|cannot guarantee|nu sunt garantate|nu pot garanta/ig,'')
+        const replyReason=safety.refusal(safety.withoutProtectionTerms(reply).replace(/not guaranteed|cannot guarantee|nu sunt garantate|nu pot garanta/ig,'')
           .replace(/I cannot access another customer|nu pot accesa alt client/ig, ''),customer);
         const unsafe = ['injection','cross_customer','abuse','off_topic','guarantee'].includes(replyReason)
           || /\b(i have|i've|am) (activated|transferred|debited)|plan (is|has been) activated/i.test(reply);

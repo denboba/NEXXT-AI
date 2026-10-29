@@ -1,10 +1,18 @@
 # NEXXT-AI · Raiffeisen AI Investment Coach
 
+> **For the jury:** [JUDGING.md](JUDGING.md) maps each of the six assessment criteria to concrete files, tests and eval scenarios. To check everything in one command (Node 20+, no install):
+>
+> ```bash
+> npm run setup && npm run verify   # 120 tests, 86/86 scenarios (25/25 safety), end-to-end core scenario
+> ```
+>
+> Domain rules and constraints: [docs/DOMAIN.md](docs/DOMAIN.md). Users, value and adoption: [docs/BUSINESS.md](docs/BUSINESS.md).
+
 ## Hackathon submission
 
 **Track: AI for Scaling & Growth · Raiffeisen NEXXT VibeHack.** People need a decision they can act on: whether they can afford to invest, what they must keep accessible, and which product fits their goal. This demo serves salaried customers, students, freelancers and a small business using fictional profiles and twelve months of deterministic synthetic transactions.
 
-The configured model chooses and calls tools through a bounded loop. It reads customer context, calculates capacity, compares products, explores changes and proposes a plan. With no key or a provider failure, a visibly labeled **offline** planner calls the same tools. Offline is rule-based; it is not presented as an AI model.
+The configured model chooses and calls 11 validated tools through a bounded loop. It reads customer context, calculates capacity, compares products, cites the relevant rules (`check_rules`), explores changes and proposes a plan. With no key or a provider failure, a visibly labeled **offline** planner calls the same tools. Offline is rule-based; it is not presented as an AI model.
 
 ```mermaid
 flowchart LR
@@ -25,7 +33,7 @@ flowchart LR
 
 Safety comes before conversion. Buffers, taxes and payroll are protected, product segment and suitability are checked on the server, model replies cannot invent numeric figures, and every activation needs the separate Confirm action. A chat message saying “yes” cannot activate a plan. Debits are separate demo actions and also preserve protected reserves. Merchant and profile text are untrusted data; tools accept no customer identifier.
 
-**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **74/74 scripted scenarios**, including **22/22 safety scenarios**. This is deterministic CI evidence, not a live-model score. The configured Bedrock smoke run returned **0/5 live passes (HTTP 403 access denied)**; full live quality remains unvalidated and the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 409.49 requests/sec**, p50 **13.3 ms**, p95 **65.78 ms**, p99 **92.04 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
+**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **86/86 scripted scenarios**, including **25/25 safety scenarios**; `npm test` runs **120 tests** and `npm run verify` passes **11/11 checks**. This is deterministic CI evidence, not a live-model score. The configured Bedrock smoke run returned **0/5 live passes (HTTP 403 access denied)**; full live quality remains unvalidated and the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 409.49 requests/sec**, p50 **13.3 ms**, p95 **65.78 ms**, p99 **92.04 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
 
 ### Run in 60 seconds
 
@@ -39,6 +47,8 @@ npm start
 Open the app on port 3000, choose a **demo persona** in the header, click their suggested first prompt, then answer the risk question. The badge says `offline` without a configured key. `/ad` retains the anonymous acquisition flow; `/admin` retains the funnel and adds planning metrics. Use **Reset demo** before each presentation. The documented phone/email login is the same Ioana account as the persona switcher. After the anonymous simulation, **Connect my accounts (demo)** reads a selected sample and lets the agent analyze it before login. Get the local admin token from the ignored configuration using your editor; do not paste it into logs or version control.
 
 ```bash
+npm run verify                  # tests + scripted eval + end-to-end HTTP walk; prints a PASS/FAIL checklist
+npm run verify:e2e              # only the end-to-end core scenario
 npm test
 npm run eval
 npm run eval -- --live          # exits 2 if no real provider key is configured
@@ -48,7 +58,19 @@ npm run impact -- --visitors=10000 --chatRate=0.15 --accountRate=0.3 --activatio
 npm run loadtest -- --concurrency=10 --journeys=20 --write-report
 ```
 
+`npm test` uses a shell glob (`test/*.test.js`), so it needs a POSIX shell (bash, zsh, Git Bash, WSL). `npm run verify` lists the test files itself and works in any shell, including Windows `cmd`.
+
 `npm run eval` writes the latest executed report. Live mode fails a quality scenario when a normal turn falls back to offline, preventing a fallback from being counted as live success. `loadtest` uses an isolated temporary JSON store, cycles all four personas and stops at a proposal; it never calls a provider or moves money. A larger burst can exit 1 with HTTP 429; that is an honest failed run.
+
+### Docker and CI
+
+A [Dockerfile](Dockerfile) (node:20-alpine, non-root user, healthcheck on `/api/config`) runs the same app with `DEMO_MODE=1`. Pass a strong `ADMIN_TOKEN`; optional provider keys can be added with `-e`.
+
+```bash
+docker build -t nexxt-ai . && docker run --rm -p 3000:3000 -e ADMIN_TOKEN=change-me nexxt-ai
+```
+
+The image was not built in our development sandbox (no working container runtime there); the container environment was checked by booting `server.js` with the same variables. [CI](.github/workflows/ci.yml) runs `npm test`, `npm run eval` and `npm run verify:e2e` on Node 20 and 22 with `LLM_PROVIDER=offline`, so no model provider is ever contacted.
 
 ### Providers, including Amazon Bedrock
 
@@ -81,7 +103,7 @@ Start at `/` and use **Reset demo**; accept its warning that all shared demo per
 |---|---|---|
 | 0:00–0:10 | **Reset demo**, then open `/ad` and follow the Instagram CTA. | A repeatable fresh journey with an explicit synthetic-data notice. |
 | 0:10–0:45 | Choose **500 lei**, **Fear of losing my money**, **5 years**. In **Connect my accounts (demo)** choose **Ioana**, connect, then answer **Medium risk**. | The initial guess becomes a spending/capacity analysis using sample transactions. Expand calculation details and activity. The preview has login/open-account buttons and **no Confirm**. |
-| 0:45–1:15 | On the preview choose **Log in with the Raiffeisen app**. Enter `+40 722 000 111`, send the request and **Approve**. The app recalculates. Ask “What fees will I pay?”, then send “I need the money for a car in 2 years” and **Confirm** the replacement. | The same Ioana account with 18,400 lei; a fresh authenticated proposal. The fee question preserves it. The shorter goal explains a diff and changes the fund to a deposit. Confirmation creates a plan without a debit. |
+| 0:45–1:15 | On the preview choose **Log in with the Raiffeisen app**. Enter `+40 722 000 111`, send the request and **Approve**. The app recalculates. Ask “What fees will I pay?” and “Is my money protected if the bank fails?”, then send “I need the money for a car in 2 years” and **Confirm** the replacement. | The same Ioana account with 18,400 lei; a fresh authenticated proposal. The fee question preserves it. The protection question calls `check_rules` and shows a cited rules card: the fund is not a deposit, so FGDB deposit cover does not apply. The shorter goal explains a diff and changes the fund to a deposit. Confirmation creates a plan without a debit. |
 | 1:15–1:35 | Select **Andrei**, tap his saving prompt and **Low risk**. | A buffer-first answer, specific subscription cuts and a 100 lei buffer-saving proposal. No market investment is pushed. |
 | 1:35–1:55 | Select **Mihai**, tap his saving prompt and **Medium risk**. | A six-month essentials buffer and 12,000 lei tax reserve; a small 200 lei plan and liquid alternatives. |
 | 1:55–2:15 | Select **Elena**, tap her saving prompt and **Low risk**. | Payroll and seasonal lows protected; a business deposit ladder with consumer products marked unsuitable. |
@@ -102,7 +124,7 @@ New-account onboarding still enforces details → ID number → selfie → OTP s
 Every activation requires a validated proposal followed by the separate Confirm endpoint. Demo top-ups and scheduled-debit stand-ins are explicit account actions; debits protect the buffer and obligations. Repeated presentations use the header reset, rather than deleting the database. `/admin` shows the original funnel plus `context_connected`, conversation/tool/mode/cost metrics and the adviser queue.
 
 ```bash
-npm test      # 106 tests: original flows plus tools, conversation, providers, progress, confirmation and safety
+npm test      # 120 tests: original flows plus tools, rules, conversation, providers, progress, confirmation, safety, unexpected situations and the end-to-end jury scenario
 ```
 
 ## How it is built
@@ -113,7 +135,9 @@ server.js      entry point
 src/app.js     HTTP server, routes, sessions, rate limits, security headers
 src/coach.js   the preserved anonymous conversation and FAQ
 src/agent/     provider adapters, bounded tool loop and offline planner
-src/tools/     scoped capacity, comparison, simulations and proposals
+src/tools/     11 scoped tools: capacity, comparison, simulations, rules and proposals
+src/domain/rules.js  versioned, cited rule cards (18 cards, 7 topics) used by check_rules
+scripts/verify.js    one-command jury verification (tests, eval, end-to-end HTTP scenario)
 src/data/      deterministic synthetic profiles and spending histories
 src/engine.js  deterministic projection and stress calculations
 src/bank.js    stand-ins for the bank's systems: customers, eKYC, SMS signing, accounts, cards, plans, ledger
@@ -132,7 +156,7 @@ src/store.js   JSON-file persistence (data/db.json)
 
 ### API (JSON, cookie session)
 
-`POST /api/context/connect` (demo sample preview) · `POST /api/agent` · `GET /api/agent/status?turnId=` · `POST /api/proposals/:id/confirm` · `POST /api/demo/reset` (demo-only) · `GET /api/admin/agent-metrics` · `POST /api/journey` · `POST /api/chat` · `GET /api/simulate?monthly=&years=` · `POST /api/signup/{details,id,selfie}` · `POST /api/signup/otp/{request,verify}` · `POST /api/login/request` · `GET /api/login/status` · `GET /api/me` · `POST /api/plans` · `POST /api/plans/:id/{run-debit,stop}` · `POST /api/handoff` · `GET /api/admin/{metrics,handoffs}` (header `x-admin-token`)
+`GET /api/config` · `GET /api/personas` · `POST /api/persona` (demo-only) · `POST /api/context/connect` (demo sample preview) · `POST /api/agent` · `GET /api/agent/status?turnId=` · `POST /api/proposals/:id/confirm` · `POST /api/demo/reset` (demo-only) · `GET /api/admin/agent-metrics` · `POST /api/journey` · `POST /api/chat` · `GET /api/simulate?monthly=&years=` · `POST /api/signup/{details,id,selfie}` · `POST /api/signup/otp/{request,verify}` · `POST /api/login/request` · `GET /api/login/status` · `GET /api/me` · `POST /api/plans` · `POST /api/plans/:id/{run-debit,stop}` · `POST /api/handoff` · `GET /api/admin/{metrics,handoffs}` (header `x-admin-token`)
 
 ## Going from demo to production
 
