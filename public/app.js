@@ -540,7 +540,7 @@ function activityPanel() {
       h('ol',null,(S.progress?.events || []).filter(event=>['tool_start','provider_start','provider_retry','fallback'].includes(event.type))
         .map(event=>h('li',null,event.type==='tool_start'?t('progress_'+event.tool)
           :event.type==='fallback'?t('progress_fallback'):event.type==='provider_retry'?t('progress_retry'):t('progress_provider'))))) : null,
-    h('p',null,t('tokens')+': '+(usage.complete===false?t('unknownUsage'):((usage.inputTokens || 0)+(usage.outputTokens || 0))), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
+    h('p',null,t('tokens')+': '+(usage.complete===false?t('unknownUsage'):((usage.inputTokens || 0)+(usage.outputTokens || 0)+(usage.cacheReadInputTokens || 0)+(usage.cacheCreationInputTokens || 0))), ' · ',t('estimatedCost')+': '+(S.agent.estimatedCostUsd==null?t('unpriced'):'$'+S.agent.estimatedCostUsd.toFixed(6))),
     S.agent.fallbackReason && !S.agent.refusalReason ? h('p', { class: 'disc', role: 'status' },
       fallbackText(S.agent.fallbackReason)) : null,
     !S.pending && !S.agent.trace?.length ? h('p', { class: 'disc' }, t('emptyActivity')) : null,
