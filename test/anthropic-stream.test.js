@@ -117,3 +117,35 @@ test('a client abort stops the stream', async () => {
   setTimeout(() => controller.abort(), 20);
   await assert.rejects(provider.complete({ ...request, signal: controller.signal }), error => error.code === 'timeout');
 });
+
+test('cached prompt tokens count toward the token budget and are priced (reads 0.1x, writes 1.25x)', async () => {
+  const { Store } = require('../src/store');
+  const { seed } = require('../src/data/personas');
+  const { run } = require('../src/agent/agent');
+  const { create } = require('../src/agent/scripted');
+  const setup = () => { const store = new Store(null); seed(store);
+    return { store, journey: { id: 'journey-ioana', userId: 'persona-ioana', language: 'en',
+      coach: { profile: { risk: 'medium' } }, memory: {}, messages: [] } }; };
+  const cachedProvider = cache => { const base = create([
+    { text: '', toolCalls: ['get_customer_profile', 'get_spending_summary', 'find_savings_capacity']
+      .map((name, index) => ({ id: 'c' + index, name, input: {} })) },
+    { text: 'I checked your capacity and kept your savings safe.', toolCalls: [] }]);
+    return { name: 'anthropic', model: 'claude-test', complete: async request => ({ ...await base.complete(request),
+      usage: { inputTokens: 100, outputTokens: 10, ...cache } }) }; };
+  const env = { LLM_INPUT_USD_PER_MILLION: '3', LLM_OUTPUT_USD_PER_MILLION: '15' };
+  const priced = await run({ ...setup(), env, text: 'Help me invest',
+    provider: cachedProvider({ cacheReadInputTokens: 1000, cacheCreationInputTokens: 200 }) });
+  assert.equal(priced.mode, 'agent');
+  const u = priced.usage;
+  assert.ok(u.cacheReadInputTokens > 0 && u.cacheCreationInputTokens > 0);
+  const expected = ((u.inputTokens + u.cacheReadInputTokens * 0.1 + u.cacheCreationInputTokens * 1.25) * 3 + u.outputTokens * 15) / 1e6;
+  assert.ok(Math.abs(priced.estimatedCostUsd - expected) < 1e-12);
+  assert.ok(priced.estimatedCostUsd > ((u.inputTokens * 3 + u.outputTokens * 15) / 1e6));
+  const error = console.error; console.error = () => {};
+  let over;
+  try {
+    over = await run({ ...setup(), env: { ...env, LLM_TOKEN_BUDGET: '9000' }, text: 'Help me invest',
+      provider: cachedProvider({ cacheReadInputTokens: 9000 }) });
+  } finally { console.error = error; }
+  assert.equal(over.mode, 'offline'); assert.equal(over.fallbackReason, 'token_budget');
+});

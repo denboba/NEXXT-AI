@@ -130,3 +130,17 @@ test('the offline planner goes through the guard and never trips it', async () =
   } finally { guard.check = original; }
   assert.ok(checked > 20); assert.deepEqual(rejected, []);
 });
+
+test('offline loop stops after an iteration where the guard rejected every call', async () => {
+  const offline = require('../src/agent/offline'), original = offline.next;
+  let asked = 0;
+  // A planner that keeps asking for propose_plan without its preconditions.
+  offline.next = () => { asked++; return { toolCalls: [{ id: 'p', name: 'propose_plan', input: { productId: 'x', monthly: 100 } }] }; };
+  try {
+    const ctx = setup('ioana', 'medium');
+    const result = await run({ ...ctx, text: 'Help me invest', provider: null });
+    assert.equal(asked, 1, 'the rejected call is not re-issued');
+    assert.equal(result.trace.filter(item => item.guard === 'PRECONDITION_NOT_MET').length, 1);
+    assert.equal(ctx.store.db.audit.filter(entry => entry.reason === 'PRECONDITION_NOT_MET').length, 1);
+  } finally { offline.next = original; }
+});

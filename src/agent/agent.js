@@ -25,8 +25,13 @@ function price(usage,env,provider) {
   const input=Number(env.LLM_INPUT_USD_PER_MILLION),output=Number(env.LLM_OUTPUT_USD_PER_MILLION);
   if (!env.LLM_INPUT_USD_PER_MILLION || !env.LLM_OUTPUT_USD_PER_MILLION
     || !Number.isFinite(input) || !Number.isFinite(output) || input < 0 || output < 0) return null;
-  return (usage.inputTokens*input+usage.outputTokens*output)/1000000;
+  // Anthropic prompt caching: cache reads bill at 0.1x and cache writes at 1.25x the input price.
+  const cached=(usage.cacheReadInputTokens || 0)*0.1+(usage.cacheCreationInputTokens || 0)*1.25;
+  return ((usage.inputTokens+cached)*input+usage.outputTokens*output)/1000000;
 }
+// Every billed token counts toward the turn budget, including cached prefix tokens.
+const spent = usage => usage.inputTokens + usage.outputTokens
+  + (usage.cacheReadInputTokens || 0) + (usage.cacheCreationInputTokens || 0);
 const WHY = { get_customer_profile: 'need_profile', get_spending_summary: 'need_spending',
   find_savings_capacity: 'need_capacity', set_risk_profile: 'risk_answer', compare_products: 'compare',
   simulate: 'project_outcome', what_if: 'what_if', propose_plan: 'make_proposal', check_rules: 'rule_question',
@@ -157,6 +162,8 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         decision: 'rejected', reason: rejection.code });
       return rejection;
     }
+    // Once the client has gone, no further tool (and no further side effect) runs this turn.
+    if(signal?.aborted) throw aborted();
     const output=execute(call.name,call.input);
     if(!output.error) guard.remember(seen, call);
     results[call.name]=output;
@@ -180,8 +187,10 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
       iteration++;
       const response=offline.next(context());
       if(!response.toolCalls?.length) break;
-      for(const call of response.toolCalls) tool(call);
-      if(response.stopAfterTools) break;
+      // A guard rejection leaves no result, so the planner would re-issue the same call; stop
+      // once a whole iteration was rejected instead of repeating identical rejected rows.
+      const outputs=response.toolCalls.map(call=>tool(call));
+      if(response.stopAfterTools || outputs.every(output=>output?.status==='REJECTED')) break;
     }
     return offline.answer(results,journey.coach?.profile.risk,language);
   }
@@ -209,7 +218,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         if(signal?.aborted) throw aborted();
         const remaining=timeout-(performance.now()-began);
         if(remaining<=0) throw new Error('timeout');
-        if(usage.inputTokens+usage.outputTokens>=budget) throw new Error('token_budget');
+        if(spent(usage)>=budget) throw new Error('token_budget');
         const estimatedInput=Math.ceil((system.length+1+sessionContext.length+JSON.stringify(messages).length+JSON.stringify(specs).length)/3);
         if(provider.name!=='scripted' && estimatedBudgetUsed+estimatedInput+800>budget) throw new Error('token_budget');
         let timer;
@@ -259,9 +268,10 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         for (const key of ['cacheReadInputTokens', 'cacheCreationInputTokens']) {
           if (Number.isFinite(consumed[key])) usage[key] = (usage[key] || 0) + Math.max(0, consumed[key]);
         }
-        estimatedBudgetUsed += Math.max(estimatedInput, Number(consumed.inputTokens) || 0)
+        estimatedBudgetUsed += Math.max(estimatedInput, (Number(consumed.inputTokens) || 0)
+          + (Number(consumed.cacheReadInputTokens) || 0) + (Number(consumed.cacheCreationInputTokens) || 0))
           + Math.max(0, Number(consumed.outputTokens) || Math.ceil(JSON.stringify(response).length / 3));
-        if(usage.inputTokens+usage.outputTokens>budget) throw new Error('token_budget');
+        if(spent(usage)>budget) throw new Error('token_budget');
         const calls=response.toolCalls || [];
         if(calls.length) {
           if(++toolIterations>6 || calls.length>10) throw new Error('tool_limit');
@@ -313,7 +323,8 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     signal?.removeEventListener('abort', cancel);
   }
   if (abortedError) {
-    // Nothing is persisted for the turn; the caller must not store a coach message.
+    // No chat message or turn metrics are stored and no tool runs after the abort. Tools that
+    // completed before it (e.g. a proposal preview or an adviser handoff) keep their effects.
     store.db.audit.push({ at: new Date().toISOString(), personaId: store.db.users[journey.userId]?.personaId || 'anonymous',
       decision: 'aborted', reason: 'client_abort' });
     store.save();
