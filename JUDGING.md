@@ -76,6 +76,8 @@ Then follow the [three-minute demo script](README.md#three-minute-demo-script) i
 
 **Visible orchestration timeline.** Every tool call in a turn is recorded as a numbered trace step with `step`, `iteration` (planning loop round), `source` (`agent` when the live model chose it, `offline` for the deterministic planner), `why` (rationale code such as `need_capacity` or `make_proposal`), the validated `input`, a compact PII-free `result` (for example `safeMonthly=500, buffer=10200`), status and ms. The chat **Activity** panel (open by default on desktop in demo mode) renders this as a timeline with a header showing mode, fallback reason, model calls and tool steps. The same data is in the `trace` field of `POST /api/agent`. For Ioana, "I have some spare cash, what should I do?" then "medium" shows 7 steps over 4 iterations ending in `propose_plan` (no money moves until confirmation).
 
+**Agent decision graph.** Each turn also returns `decisions` (nodes) and `decisionEdges`, derived from the trace, tool results and reply guard in both live LLM and offline modes: intent, then decision points such as `buffer_ready: yes -> compare_products` (with the branch not taken greyed out), the tools, and a final outcome (`proposal`, `ask_risk_question`, `handoff`, `refusal`, `rules_answer`), rendered as a vertical flow above the Activity timeline.
+
 **The 11 tools** ([src/tools/index.js](src/tools/index.js)). None accepts a customer identifier; all read the customer from the server session.
 
 | Tool | What it decides or produces |

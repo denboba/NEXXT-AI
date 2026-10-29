@@ -62,7 +62,7 @@ async function boot() {
     S.config = await api('GET', '/api/config');
     if (S.config.demoMode) S.personas = (await api('GET', '/api/personas')).personas;
     S.snap = await api('POST', '/api/journey', { source: q.get('src'), campaign: q.get('cmp'), language: I18n.language });
-    S.agent = { ...S.agent, ...pick(S.snap, ['mode','trace','usage','estimatedCostUsd','fallbackReason']) };
+    S.agent = { ...S.agent, ...pick(S.snap, ['mode','trace','decisions','usage','estimatedCostUsd','fallbackReason']) };
     if (q.has('src')) history.replaceState(null, '', '/');
     if (S.snap.user) await loadMe();
     S.years = S.snap.profile.years || 5;
@@ -109,7 +109,7 @@ async function send(input, path = '/api/chat') {
   S.progressTimer = setTimeout(poll, 200);
   try {
     const r = await api('POST', path, { ...input, turnId });
-    S.agent = { ...S.agent, ...pick(r, ['mode','trace','usage','estimatedCostUsd','fallbackReason','providerCalls','refusalReason']) };
+    S.agent = { ...S.agent, ...pick(r, ['mode','trace','decisions','usage','estimatedCostUsd','fallbackReason','providerCalls','refusalReason']) };
     S.snap = { ...S.snap, ...pick(r, ['profile', 'stage', 'step', 'user', 'proposalVersion', 'sampleProfile', 'requiresReplan']), messages: r.history };
     if (S.snap.profile.years) S.years = S.snap.profile.years;
     await refreshPanel();
@@ -537,6 +537,7 @@ function activityPanel() {
       + (S.agent.fallbackReason ? ' · ' + t('timelineFallback') + ': ' + S.agent.fallbackReason : '')
       + ' · ' + t('timelineProviderCalls') + ': ' + (S.agent.providerCalls || []).length
       + ' · ' + t('timelineSteps') + ': ' + S.agent.trace.filter(item => item.kind !== 'provider').length) : null,
+    decisionGraph(S.agent.decisions),
     h('ol',{class:'timeline'},(S.agent.trace || []).map(item=>{
       const why = item.why ? t('why_' + item.why) : '';
       const input = JSON.stringify(item.input || {});
@@ -549,6 +550,21 @@ function activityPanel() {
           item.result ? h('p',{class:'tl-result'},t('timelineResult')+': '+item.result) : null,
           h('span',null,(item.error?t('rejected'):t('completed'))+' · '+item.summary+' · '+item.ms+' ms')));
     })));
+}
+
+// Vertical decision flow: intent, decision diamonds (question = answer), tools, outcome.
+function decisionGraph(nodes) {
+  if (!nodes?.length) return null;
+  const label = (prefix, value) => { const text = t(prefix + value); return text === prefix + value ? value : text; };
+  return h('div', { class: 'dgraph', role: 'group', 'aria-label': t('decisionGraph') },
+    h('p', { class: 'timeline-head' }, t('decisionGraph')),
+    h('ol', null, nodes.map(node => h('li', { class: 'dg-node dg-' + node.kind + (node.error ? ' tl-error' : '') },
+      node.kind === 'decision' ? h('span', { class: 'dg-diamond', 'aria-hidden': 'true' }, '◆') : null,
+      h('b', null, node.kind === 'tool' ? node.question : label('dq_', node.question)),
+      node.kind === 'tool' ? null : h('span', null, ': ' + label('da_', node.answer)),
+      node.kind === 'decision' && node.outcome ? h('small', null, ' → ' + label('da_', node.outcome)) : null,
+      node.kind === 'decision' && node.notTaken
+        ? h('small', { class: 'dg-skip', title: t('decisionNotTaken') }, ' ✕ ' + label('da_', node.notTaken)) : null))));
 }
 
 function agentCard(card) {

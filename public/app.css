@@ -149,3 +149,12 @@ select,summary{font:inherit}
 .timeline .tl-body { min-width: 0; font-size: .82rem; }
 .timeline .tl-body code { display: block; overflow-wrap: anywhere; font-size: .75rem; opacity: .8; }
 .timeline .tl-why, .timeline .tl-result { margin: .1rem 0; }
+.dgraph ol { list-style: none; margin: 0 0 .6rem; padding: 0; }
+.dgraph .dg-node { position: relative; margin: 0 auto 1.1rem; padding: .35rem .6rem; border: 1px solid #c8d3e3; border-radius: .5rem; font-size: .8rem; background: #fff; }
+.dgraph .dg-node:not(:last-child)::after { content: '↓'; position: absolute; left: 50%; bottom: -1.15rem; transform: translateX(-50%); color: #6b7a90; }
+.dgraph .dg-intent { background: #e8f0fb; border-color: #1f4e8c; }
+.dgraph .dg-decision { border-style: dashed; }
+.dgraph .dg-diamond { color: #b7791f; margin-right: .3rem; }
+.dgraph .dg-tool { background: #f6f8fb; font-family: ui-monospace, monospace; }
+.dgraph .dg-outcome { background: #1f4e8c; color: #fff; border-color: #1f4e8c; }
+.dgraph .dg-skip { color: #9aa5b5; text-decoration: line-through; margin-left: .3rem; }

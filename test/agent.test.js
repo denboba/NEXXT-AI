@@ -102,6 +102,21 @@ test('persona login greets with the agent, not the scripted amount questions', a
   const ro = app.client(); await ro.post('/api/journey', {}); await ro.post('/api/language', { language: 'ro' });
   assert.match((await ro.post('/api/persona', { persona: 'mihai' })).data.messages[0].text, /^Bună, Mihai!/);
 });
+test('decision graph shows intent, buffer decision and proposal outcome for Ioana (offline and live agent loop)',async()=>{
+  for(const provider of [null,create()]) {
+    const ctx=setup('ioana');
+    await run({...ctx,text:'I have some spare cash, what should I do?',provider});
+    const result=await run({...ctx,text:'medium',provider});
+    assert.ok(Array.isArray(result.decisions) && result.decisions.length>0);
+    assert.equal(result.decisions[0].kind,'intent');
+    assert.ok(result.decisions.some(node=>node.kind==='decision' && /buffer|capacity/.test(node.question)));
+    assert.ok(result.decisions.some(node=>node.kind==='tool' && node.question==='find_savings_capacity'));
+    const outcome=result.decisions.at(-1);
+    assert.equal(outcome.kind,'outcome');assert.equal(outcome.answer,'proposal');
+    assert.equal(result.decisionEdges.length,result.decisions.length-1);
+    if(provider) assert.equal(result.mode,'agent');
+  }
+});
 test('offline trace is a visible numbered orchestration timeline with why and result',async()=>{
   const ctx=setup('ioana');
   await run({...ctx,text:'I have some spare cash, what should I do?',provider:null});

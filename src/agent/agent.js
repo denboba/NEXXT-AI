@@ -31,6 +31,52 @@ const WHY = { get_customer_profile: 'need_profile', get_spending_summary: 'need_
   simulate: 'project_outcome', what_if: 'what_if', propose_plan: 'make_proposal', check_rules: 'rule_question',
   request_authentication: 'need_login', handoff_to_adviser: 'adviser' };
 // Compact, PII-free human summary of a tool output for the visible orchestration timeline.
+// Decision graph: intent -> decision points -> tools -> outcome, derived only from this turn's
+// trace, tool results and guard outcome, so live LLM and offline runs produce the same shape.
+function decisionGraph({ input, reason, results, trace, guardOutcome, mode, risk }) {
+  const nodes = [];
+  const add = node => { nodes.push(node); return node; };
+  const intent = reason ? 'refusal' : input.conversation?.topic || (input.riskAnswer ? 'risk_answer'
+    : input.change || input.monthly !== null ? 'change_plan' : 'invest');
+  add({ id: 'intent', kind: 'intent', question: 'intent', answer: intent, step: 0 });
+  add({ id: 'safe_request', kind: 'decision', question: 'safe_request', answer: reason ? 'no' : 'yes',
+    outcome: reason ? 'refusal' : 'use_tools', notTaken: reason ? 'use_tools' : 'refusal', step: 0 });
+  for (const item of trace.filter(entry => entry.kind !== 'provider')) {
+    add({ id: 'tool_' + item.step, kind: 'tool', question: item.tool, answer: item.result || item.summary,
+      source: item.source, step: item.step, error: item.error });
+    const output = results[item.tool] || {};
+    if (item.tool === 'find_savings_capacity' && !output.error) {
+      const ready = output.bufferReady !== false;
+      add({ id: 'buffer_ready_' + item.step, kind: 'decision', question: 'buffer_ready', answer: ready ? 'yes' : 'no',
+        outcome: ready ? 'compare_products' : 'protect_buffer', notTaken: ready ? 'protect_buffer' : 'compare_products',
+        step: item.step });
+    }
+    if (item.tool === 'set_risk_profile' && !output.error) {
+      add({ id: 'risk_known_' + item.step, kind: 'decision', question: 'risk_known', answer: 'yes', outcome: 'compare_products',
+        notTaken: 'ask_risk_question', step: item.step });
+    }
+  }
+  const capacity = results.find_savings_capacity;
+  let outcome = 'answer';
+  if (reason) outcome = 'refusal';
+  else if (results.handoff_to_adviser) outcome = 'handoff';
+  else if (results.request_authentication) outcome = 'login';
+  else if (results.propose_plan?.proposal) outcome = 'proposal';
+  else if (results.check_rules) outcome = 'rules_answer';
+  else if (capacity && capacity.bufferReady === false) outcome = 'protect_buffer';
+  else if (capacity && !risk && !results.set_risk_profile) {
+    add({ id: 'risk_known', kind: 'decision', question: 'risk_known', answer: 'no', outcome: 'ask_risk_question',
+      notTaken: 'compare_products', step: nodes.at(-1).step });
+    outcome = 'ask_risk_question';
+  }
+  if (mode === 'agent') {
+    add({ id: 'reply_guard', kind: 'decision', question: 'reply_guard', answer: guardOutcome,
+      outcome: 'reply', notTaken: 'offline_fallback', step: nodes.at(-1).step });
+  }
+  add({ id: 'outcome', kind: 'outcome', question: 'outcome', answer: outcome, step: nodes.at(-1).step });
+  const edges = nodes.slice(1).map((node, index) => ({ from: nodes[index].id, to: node.id }));
+  return { nodes, edges };
+}
 function resultOf(name, output) {
   if (!output || typeof output !== 'object') return '';
   if (output.error) return 'rejected: ' + String(output.error).slice(0, 100);
@@ -238,7 +284,8 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   store.db.audit.push({at:metrics.at,personaId:metrics.personaId,decision:reason?'refusal':mode,reason:reason || fallbackReason});
   store.save();
   emit({ type: 'complete', mode, code: fallbackReason || 'ok' });
-  return {text:final,cards,trace,providerCalls,guardOutcome,mode,usage,estimatedCostUsd:cost,
+  const graph = decisionGraph({ input, reason, results, trace, guardOutcome, mode, risk: journey.coach?.profile.risk });
+  return {text:final,cards,trace,decisions:graph.nodes,decisionEdges:graph.edges,providerCalls,guardOutcome,mode,usage,estimatedCostUsd:cost,
     latencyMs:ms,refusalReason:reason,fallbackReason,fallbackHint,promptVersion:VERSION};
 }
 module.exports={run,numericFacts};
