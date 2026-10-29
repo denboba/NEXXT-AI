@@ -10,9 +10,11 @@
   "scripts": {
     "setup": "node scripts/setup.js",
     "start": "node server.js",
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node --test test/*.test.js",
     "loadtest": "node scripts/loadtest.js",
     "eval": "node eval/run.js",
+    "verify": "node scripts/verify.js",
+    "verify:e2e": "node scripts/verify.js --e2e-only",
     "smoke:live": "node scripts/smoke-live.js",
     "impact": "node scripts/impact.js"
   }

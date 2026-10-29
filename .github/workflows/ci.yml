@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    env:
+      # Never contact a real model provider in CI; the offline planner is the evidence path.
+      LLM_PROVIDER: offline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Unit and HTTP tests
+        run: npm test
+      - name: Scripted agent eval
+        run: npm run eval
+      - name: End-to-end jury scenario
+        run: npm run verify:e2e
