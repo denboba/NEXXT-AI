@@ -4,7 +4,7 @@ const { requestJSON, failure } = require('./http');
 function create({ env, fetchImpl = fetch }) {
   return {
     name: 'openai',
-    async complete({ system, messages, tools, signal, callTimeoutMs, deadline, onEvent }) {
+    async complete({ system, context, messages, tools, signal, callTimeoutMs, deadline, onEvent }) {
       const url = new URL(env.COMPAT_BASE_URL || 'https://api.openai.com/v1');
       const local = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname);
       if (url.protocol !== 'https:' && !local) throw new Error('Provider URL requires HTTPS');
@@ -22,7 +22,7 @@ function create({ env, fetchImpl = fetch }) {
         headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.COMPAT_API_KEY },
         body: JSON.stringify({
           model: env.COACH_MODEL || 'gpt-4.1-mini', max_tokens: 800,
-          messages: [{ role: 'system', content: system }, ...converted],
+          messages: [{ role: 'system', content: context ? system + '\n' + context : system }, ...converted],
           tools: tools.map(tool => ({ type: 'function', function: {
             name: tool.name, description: tool.description, parameters: tool.inputSchema,
           } })),

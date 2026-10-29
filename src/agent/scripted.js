@@ -9,10 +9,10 @@ function create(sequence) {
       if(!item) return {text:'',toolCalls:[],usage:{inputTokens:0,outputTokens:0}};
       return {...item,usage:item.usage || {inputTokens:0,outputTokens:0}};
     }
-    const result=offline.next(request.context);
+    const result=offline.next(request.state);
     if(!result.toolCalls?.length || result.stopAfterTools) {
       if (!result.toolCalls?.length) return {
-        text: offline.answer(request.context.results, request.context.risk, request.context.language),
+        text: offline.answer(request.state.results, request.state.risk, request.state.language),
         toolCalls: [], usage: { inputTokens: 0, outputTokens: 0 },
       };
     }

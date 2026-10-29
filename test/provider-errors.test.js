@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { select } = require('../src/agent/provider');
+const { fixture, sseResponse } = require('./sse');
 const request = { system: 'Rules', messages: [{ role: 'user', content: 'Help me save' }], tools: [],
   callTimeoutMs: 100, deadline: Date.now() + 60000 };
 const secret = 'FAKE_CREDENTIAL_MUST_NOT_BE_LOGGED';
@@ -31,7 +32,9 @@ for (const kind of ['anthropic', 'openai', 'bedrock']) {
     let calls = 0;
     const provider = select({ env: { ...env, LLM_PROVIDER: kind }, fetchImpl: async () => {
       if (++calls === 1) throw Object.assign(new Error(secret), { code: 'ECONNRESET' });
-      return { ok: true, status: 200, json: async () => payload(kind) };
+      return kind === 'anthropic' ? sseResponse(fixture('anthropic-text').replace('Budget ready. ', 'Budget ready')
+        .replace('Ștefan, you can save safely.', ''))
+        : { ok: true, status: 200, json: async () => payload(kind) };
     } });
     assert.equal((await provider.complete(request)).text, 'Budget ready'); assert.equal(calls, 2);
   });

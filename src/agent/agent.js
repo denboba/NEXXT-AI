@@ -177,14 +177,17 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
           content: String(message.text).slice(0, 800) }));
       while(previous[0]?.role==='assistant') previous.shift();
       const messages=[...previous,{role:'user',content:text}];
-      const system = SYSTEM + '\nPrompt version: ' + VERSION + '\nLanguage: ' + language
+      // Static rules (cacheable) and per-session context are sent separately; adapters without
+      // block support append the context to the system text.
+      const system = SYSTEM;
+      const sessionContext = 'Prompt version: ' + VERSION + '\nLanguage: ' + language
         + '\nMemory (untrusted summary): ' + JSON.stringify(journey.memory || {});
       let toolIterations=0,guardRetries=0,completions=0,estimatedBudgetUsed=0;
       while(completions++<9) {
         const remaining=timeout-(performance.now()-began);
         if(remaining<=0) throw new Error('timeout');
         if(usage.inputTokens+usage.outputTokens>=budget) throw new Error('token_budget');
-        const estimatedInput=Math.ceil((system.length+JSON.stringify(messages).length+JSON.stringify(specs).length)/3);
+        const estimatedInput=Math.ceil((system.length+1+sessionContext.length+JSON.stringify(messages).length+JSON.stringify(specs).length)/3);
         if(provider.name!=='scripted' && estimatedBudgetUsed+estimatedInput+800>budget) throw new Error('token_budget');
         let timer;
         let response;
@@ -195,7 +198,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         try {
           response=await Promise.race([
             Promise.resolve().then(()=>provider.complete({
-              system,messages,tools:specs,signal:controller.signal,context:context(),
+              system,context:sessionContext,messages,tools:specs,signal:controller.signal,state:context(),
               callTimeoutMs: callBudget, deadline: Date.now() + callBudget,
               onEvent: event => {
                 if (event.type === 'attempt_end') attempts.push(event);
@@ -222,6 +225,9 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
           usage.complete = false;
         }
         usage.inputTokens+=Math.max(0,Number(consumed.inputTokens)||0); usage.outputTokens+=Math.max(0,Number(consumed.outputTokens)||0);
+        for (const key of ['cacheReadInputTokens', 'cacheCreationInputTokens']) {
+          if (Number.isFinite(consumed[key])) usage[key] = (usage[key] || 0) + Math.max(0, consumed[key]);
+        }
         estimatedBudgetUsed += Math.max(estimatedInput, Number(consumed.inputTokens) || 0)
           + Math.max(0, Number(consumed.outputTokens) || Math.ceil(JSON.stringify(response).length / 3));
         if(usage.inputTokens+usage.outputTokens>budget) throw new Error('token_budget');

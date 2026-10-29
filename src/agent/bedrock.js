@@ -25,7 +25,7 @@ function messagesFor(messages) {
 function create({ env, fetchImpl = fetch }) {
   return {
     name: 'bedrock',
-    async complete({ system, messages, tools, signal, callTimeoutMs, deadline, onEvent }) {
+    async complete({ system, context, messages, tools, signal, callTimeoutMs, deadline, onEvent }) {
       if (!/^[a-z]{2}(?:-gov)?-[a-z]+-\d$/.test(env.AWS_REGION || '')) throw failure('bad_request');
       const modelHint = 'Check BEDROCK_MODEL_ID: use a foundation model ID or inference profile ID/ARN, not a display name.';
       if (!validModel(env.BEDROCK_MODEL_ID)) throw new ProviderError('model_not_found', modelHint);
@@ -37,7 +37,7 @@ function create({ env, fetchImpl = fetch }) {
           method: 'POST',
           headers: { 'content-type': 'application/json', authorization: 'Bearer ' + env.AWS_BEARER_TOKEN_BEDROCK },
           body: JSON.stringify({
-            system: [{ text: system }], messages: messagesFor(messages), inferenceConfig: { maxTokens: 800 },
+            system: [{ text: context ? system + '\n' + context : system }], messages: messagesFor(messages), inferenceConfig: { maxTokens: 800 },
             toolConfig: { tools: tools.map(tool => ({ toolSpec: {
               name: tool.name, description: tool.description, inputSchema: { json: tool.inputSchema },
             } })) },
