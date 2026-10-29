@@ -182,7 +182,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     res.setHeader('set-cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
     return { reset: true };
   });
-  route('POST', '/api/context/connect', { journey: true, rate: ['context-connect', 20] }, async ({ j, body }) => {
+  route('POST', '/api/context/connect', { journey: true, rate: ['context-connect', 20] }, async ({ j, body, res }) => {
     if (!demo) throw new bank.BankError('Sample connection is available only in demo mode.', 403);
     if (busy.has(j.id)) throw new bank.BankError('Wait for this conversation to finish.', 409);
     const sampleId = 'persona-' + body.persona;
@@ -201,7 +201,7 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     j.lastAgent = null;
     coach.enterAgent(store, j, j.userId ? store.db.users[j.userId] : sample);
     analytics.track(store, j, 'context_connected');
-    return agentTurn(j, { text: 'Help me plan my savings using the connected sample data', turnId: body.turnId });
+    return agentTurn(j, { text: 'Help me plan my savings using the connected sample data', turnId: body.turnId }, res);
   });
 
   route('GET', '/api/personas', {}, () => {
@@ -224,16 +224,16 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     return { ...me(user), ...snapshot(j) };
   });
 
-  route('POST', '/api/chat', { journey: true, rate: ['chat', 60] }, async ({ body, j }) => {
+  route('POST', '/api/chat', { journey: true, rate: ['chat', 60] }, async ({ body, j, res }) => {
     if ((body.type === 'text' && (hasContext(j) || select({env,fetchImpl})))
       || (hasContext(j) && ['r_low','r_medium','r_high'].includes(body.id))) {
-      return agentTurn(j, body.type === 'choice' ? {text:body.id.slice(2)} : body);
+      return agentTurn(j, body.type === 'choice' ? {text:body.id.slice(2)} : body, res);
     }
     const input = ['choice', 'amount', 'text'].includes(body.type) ? body : { type: 'state' };
     const r = await coach.handle(store, j, input, ctxFor(j));
     return { ...snapshot(j), messages: r.messages, history: j.messages };
   });
-  async function agentTurn(j, body) {
+  async function agentTurn(j, body, res) {
     if (typeof body.text !== 'string' || !require('./agent/safety').clean(body.text) || body.text.length > 500) {
       throw new bank.BankError('Enter a message of up to 500 characters.');
     }
@@ -243,8 +243,12 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
     const status = { turnId: body.turnId || crypto.randomUUID(), state: 'running', events: [], started: Date.now() };
     progress.set(j.id, status);
     busy.add(j.id);
+    // The client went away before we answered (closed tab, cancelled fetch): stop the turn, no fallback.
+    const client = new AbortController();
+    const closed = () => { if (!res?.writableEnded) client.abort(); };
+    res?.on('close', closed);
     try {
-      const result = await agent.run({store,journey:j,text:body.text,env,fetchImpl,provider,
+      const result = await agent.run({store,journey:j,text:body.text,env,fetchImpl,provider,signal:client.signal,
         onProgress: event => { status.events.push(event); if (status.events.length > 100) status.events.shift(); },
       });
       status.state = 'complete';
@@ -261,13 +265,19 @@ function createApp({ store, env = process.env, fetchImpl, provider }) {
       if (result.cards.some(card=>card.type==='compare')) analytics.track(store,j,'questions_answered');
       store.save();
       return {...snapshot(j),messages:[message],history:j.messages,...meta};
+    } catch (error) {
+      if (error.code !== 'aborted') throw error;
+      // Nothing is persisted for an aborted turn; the socket is gone so this reply is never read.
+      status.state = 'aborted';
+      throw Object.assign(new Error('The request was cancelled.'), { status: 499 });
     } finally {
+      res?.off('close', closed);
       status.state = status.state === 'running' ? 'failed' : status.state;
       status.finished ||= Date.now();
       busy.delete(j.id);
     }
   }
-  route('POST', '/api/agent', { journey: true, rate: ['agent-ip', 60] }, ({body,j}) => agentTurn(j,body));
+  route('POST', '/api/agent', { journey: true, rate: ['agent-ip', 60] }, ({body,j,res}) => agentTurn(j,body,res));
   route('GET', '/api/agent/status', { journey: true }, ({ j, query }) => {
     const status = progress.get(j.id);
     if (query.get('turnId') && query.get('turnId') !== status?.turnId) {

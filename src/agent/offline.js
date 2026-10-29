@@ -7,8 +7,10 @@ function next({ text, results, risk, memory = {} }) {
   if (results.propose_plan?.proposal?.preview && !results.request_authentication) {
     return { toolCalls: [call('request_authentication', { kind: 'login' })] };
   }
+  // After a mid-turn failover, never re-issue a tool whose result this turn already has.
   if (!results.get_customer_profile) return {
-    toolCalls: [call('get_customer_profile'), call('get_spending_summary'), call('find_savings_capacity')],
+    toolCalls: ['get_customer_profile', 'get_spending_summary', 'find_savings_capacity'].filter(name => !results[name])
+      .map(name => call(name)),
   };
   if (results.get_customer_profile.error) return results.request_authentication ? { text: '' }
     : { toolCalls: [call('request_authentication', { kind: 'login' })], stopAfterTools: true };
@@ -53,7 +55,7 @@ function next({ text, results, risk, memory = {} }) {
   const product=results.compare_products.products?.find(p=>p.eligible);
   if (effectiveRisk && product && amount>=100 && !results.propose_plan) {
     const toolCalls=[call('propose_plan',{productId:product.id,monthly:amount})];
-    if (amount<=2000 && horizon>=1) toolCalls.unshift(call('simulate',{monthly:amount,years:Math.floor(horizon),productId:product.id}));
+    if (amount<=2000 && horizon>=1 && !results.simulate) toolCalls.unshift(call('simulate',{monthly:amount,years:Math.floor(horizon),productId:product.id}));
     return {toolCalls};
   }
   return {text:answer(results,effectiveRisk)};

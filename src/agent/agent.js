@@ -101,12 +101,15 @@ function resultOf(name, output) {
   }
   return (parts.join(', ') || output.ui?.type || 'ok').slice(0, 120);
 }
-async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:injected,onProgress}) {
+function aborted() { return Object.assign(new Error('Request aborted by the client.'), { name: 'AbortError', code: 'aborted' }); }
+async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:injected,onProgress,signal}) {
   const began=performance.now(),language=journey.language || 'en';
   text=safety.clean(text).slice(0,500);
   const {execute,specs}=createTools({store,journey});
   const trace=[],cards=[],results={},usage={inputTokens:0,outputTokens:0,complete:true};
-  const providerCalls = [], seen = new Set();
+  // streamed: model text from this turn's successful tool-call responses plus partial deltas of a
+  // failed call; kept on failover but never forwarded to progress events.
+  const providerCalls = [], seen = new Set(), streamed = [];
   const emit = event => {
     try { onProgress?.({ ...event, elapsedMs: Math.round(performance.now() - began) }); }
     catch { /* A progress observer must not change the planning outcome. */ }
@@ -128,6 +131,10 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   const reason=safety.refusal(text,customer);
   const provider=injected===undefined?select({env,fetchImpl}):injected;
   const controller=new AbortController();
+  // A client abort (request closed) ends the turn without the offline fallback.
+  const cancel = () => controller.abort();
+  if (signal?.aborted) cancel(); else signal?.addEventListener('abort', cancel, { once: true });
+  let abortedError = null;
   const timeout=number(env,'LLM_TIMEOUT_MS',30000,60000),budget=number(env,'LLM_TOKEN_BUDGET',24000,24000);
   const callTimeout = number(env, 'LLM_CALL_TIMEOUT_MS', 20000, 60000);
   let guardOutcome = provider ? 'pending' : 'offline_template';
@@ -199,6 +206,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         + '\nMemory (untrusted summary): ' + JSON.stringify(journey.memory || {});
       let toolIterations=0,guardRetries=0,completions=0,estimatedBudgetUsed=0;
       while(completions++<9) {
+        if(signal?.aborted) throw aborted();
         const remaining=timeout-(performance.now()-began);
         if(remaining<=0) throw new Error('timeout');
         if(usage.inputTokens+usage.outputTokens>=budget) throw new Error('token_budget');
@@ -208,6 +216,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         let response;
         const callStarted = performance.now();
         const attempts = [];
+        let partial = '';
         const callBudget = Math.min(remaining, callTimeout);
         emit({ type: 'provider_start', provider: provider.name, call: completions });
         try {
@@ -216,6 +225,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
               system,context:sessionContext,messages,tools:specs,signal:controller.signal,state:context(),
               callTimeoutMs: callBudget, deadline: Date.now() + callBudget,
               onEvent: event => {
+                if (event.type === 'text_delta') { partial += String(event.text || ''); return; }
                 if (event.type === 'attempt_end') attempts.push(event);
                 emit({ ...event, type: 'provider_' + event.type, provider: provider.name });
               },
@@ -223,11 +233,17 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
             new Promise((_,reject)=>{
               timer=setTimeout(()=>{controller.abort();reject(new Error('timeout'));},callBudget);
             }),
+            new Promise((_,reject)=>{
+              if(controller.signal.aborted) reject(signal?.aborted ? aborted() : new Error('timeout'));
+              else controller.signal.addEventListener('abort',()=>reject(signal?.aborted ? aborted() : new Error('timeout')),{once:true});
+            }),
           ]).finally(()=>clearTimeout(timer));
           providerCalls.push({ provider: provider.name, ms: Math.round(performance.now() - callStarted),
             code: 'ok', attempts, usage: response.usage || null });
           emit({ type: 'provider_end', provider: provider.name, code: 'ok' });
         } catch (error) {
+          if (partial) streamed.push(partial);
+          if (signal?.aborted) error = aborted();
           const code = error.code || (error.message === 'timeout' ? 'timeout' : 'provider_error');
           const ms = Math.round(performance.now() - callStarted);
           providerCalls.push({ provider: provider.name, ms, code, attempts });
@@ -251,6 +267,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
           if(++toolIterations>6 || calls.length>10) throw new Error('tool_limit');
           if(calls.some(call=>!call || typeof call.name!=='string' || typeof call.id!=='string')) throw new Error('invalid_tool_call');
           iteration++; source='agent';
+          if (String(response.text || '').trim()) streamed.push(String(response.text).trim());
           messages.push({role:'assistant',content:response.text || '',toolCalls:calls});
           for(const call of calls) messages.push({role:'tool',toolCallId:call.id,name:call.name,content:JSON.stringify(tool(call))});
           continue;
@@ -278,15 +295,31 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
       if(!final) throw new Error('completion_limit');
     }
   } catch(error) {
-    const classified = ['throttled','auth','model_not_found','bad_request','server_error','network','bad_response'];
-    controller.abort(); fallbackReason = classified.includes(error.code) ? error.code
-      : ['timeout','token_budget','tool_limit','guard_rejection','completion_limit','invalid_tool_call'].includes(error.message)
-        ? error.message : error.code === 'timeout' ? 'timeout' : 'provider_error';
-    if (error instanceof require('./http').ProviderError) fallbackHint = error.hint;
-    guardOutcome = fallbackReason === 'guard_rejection' ? 'rejected' : 'not_completed';
-    if(provider && ['timeout','provider_error',...classified].includes(fallbackReason)) usage.complete=false;
-    final=fallback();
-  } finally { delete journey.pendingRiskAnswer; delete journey.pendingChange; delete journey.turnAllowsProposal; }
+    if (signal?.aborted) {
+      controller.abort(); abortedError = aborted();
+    } else {
+      const classified = ['throttled','auth','model_not_found','bad_request','server_error','network','bad_response'];
+      controller.abort(); fallbackReason = classified.includes(error.code) ? error.code
+        : ['timeout','token_budget','tool_limit','guard_rejection','completion_limit','invalid_tool_call'].includes(error.message)
+          ? error.message : error.code === 'timeout' ? 'timeout' : 'provider_error';
+      if (error instanceof require('./http').ProviderError) fallbackHint = error.hint;
+      guardOutcome = fallbackReason === 'guard_rejection' ? 'rejected' : 'not_completed';
+      if(provider && ['timeout','provider_error',...classified].includes(fallbackReason)) usage.complete=false;
+      if (provider && !reason) console.error('[nexxt] live provider failed: ' + fallbackReason);
+      final=fallback();
+    }
+  } finally {
+    delete journey.pendingRiskAnswer; delete journey.pendingChange; delete journey.turnAllowsProposal;
+    signal?.removeEventListener('abort', cancel);
+  }
+  if (abortedError) {
+    // Nothing is persisted for the turn; the caller must not store a coach message.
+    store.db.audit.push({ at: new Date().toISOString(), personaId: store.db.users[journey.userId]?.personaId || 'anonymous',
+      decision: 'aborted', reason: 'client_abort' });
+    store.save();
+    emit({ type: 'complete', mode: 'aborted', code: 'aborted' });
+    throw abortedError;
+  }
   if ((journey.messages || []).filter(message => message.role === 'coach').at(-1)?.text === final) {
     final = t(language, 'followUpLead') + ' ' + final;
   }
@@ -307,6 +340,6 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   emit({ type: 'complete', mode, code: fallbackReason || 'ok' });
   const graph = decisionGraph({ input, reason, results, trace, guardOutcome, mode, risk: journey.coach?.profile.risk });
   return {text:final,cards,trace,decisions:graph.nodes,decisionEdges:graph.edges,providerCalls,guardOutcome,mode,usage,estimatedCostUsd:cost,
-    latencyMs:ms,refusalReason:reason,fallbackReason,fallbackHint,promptVersion:VERSION};
+    latencyMs:ms,refusalReason:reason,fallbackReason,fallbackHint,promptVersion:VERSION,streamedText:streamed.join(' ')};
 }
 module.exports={run,numericFacts};
