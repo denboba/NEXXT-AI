@@ -1,6 +1,7 @@
 'use strict';
 const { performance } = require('node:perf_hooks');
 const { createTools } = require('../tools');
+const guard = require('./guard');
 const { numbersAllowed } = require('../llm');
 const { SYSTEM, VERSION } = require('./prompt');
 const { select } = require('./provider');
@@ -44,7 +45,7 @@ function decisionGraph({ input, reason, results, trace, guardOutcome, mode, risk
   for (const item of trace.filter(entry => entry.kind !== 'provider')) {
     add({ id: 'tool_' + item.step, kind: 'tool', question: item.tool, answer: item.result || item.summary,
       source: item.source, step: item.step, error: item.error });
-    const output = results[item.tool] || {};
+    const output = item.guard ? {} : results[item.tool] || {};
     if (item.tool === 'find_savings_capacity' && !output.error) {
       const ready = output.bufferReady !== false;
       add({ id: 'buffer_ready_' + item.step, kind: 'decision', question: 'buffer_ready', answer: ready ? 'yes' : 'no',
@@ -105,7 +106,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   text=safety.clean(text).slice(0,500);
   const {execute,specs}=createTools({store,journey});
   const trace=[],cards=[],results={},usage={inputTokens:0,outputTokens:0,complete:true};
-  const providerCalls = [];
+  const providerCalls = [], seen = new Set();
   const emit = event => {
     try { onProgress?.({ ...event, elapsedMs: Math.round(performance.now() - began) }); }
     catch { /* A progress observer must not change the planning outcome. */ }
@@ -136,7 +137,21 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   function tool(call) {
     const started=performance.now();
     emit({ type: 'tool_start', tool: call.name });
+    const rejection=guard.check({ call, specs, results, journey, seen });
+    if(rejection) {
+      // Never executed; an earlier successful result for the same tool is kept.
+      trace.push({ tool: call.name, input: call.input, summary: 'rejected', guard: rejection.code,
+        ms: Number((performance.now() - started).toFixed(2)), error: true,
+        step: trace.filter(item => item.kind !== 'provider').length + 1, iteration, source,
+        why: WHY[call.name] || 'other', result: 'REJECTED: ' + rejection.code });
+      emit({ type: 'tool_end', tool: call.name, code: 'rejected', guard: rejection.code });
+      store.db.audit.push({ at: new Date().toISOString(), personaId: store.db.users[journey.userId]?.personaId || 'anonymous',
+        tool: specs.some(spec => spec.name === call.name) ? call.name : 'unknown_tool',
+        decision: 'rejected', reason: rejection.code });
+      return rejection;
+    }
     const output=execute(call.name,call.input);
+    if(!output.error) guard.remember(seen, call);
     results[call.name]=output;
     if(output.ui && (!input.conversation || output.ui.type === 'rules' || ['market', 'inflation']
       .includes(input.conversation.topic) && output.ui.type === 'simulation')) cards.push(output.ui);

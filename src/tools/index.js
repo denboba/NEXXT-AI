@@ -38,6 +38,14 @@ const SPECS = [
     topic: enumeration(rules.TOPICS), productId: string(80),
   }, ['topic'])],
 ].map(([name, description, inputSchema]) => ({ name, description, inputSchema }));
+// Known bank operations that only the customer can trigger through the app (explicit
+// confirmation endpoints). The model can never call them: no plan activation, no money movement.
+const NOT_MODEL_CALLABLE = Object.freeze(['activate_plan', 'confirm_plan', 'confirm_proposal', 'move_money',
+  'transfer', 'transfer_money', 'execute_debit', 'cancel_plan', 'withdraw']);
+// Preconditions checked by src/agent/guard.js before a tool runs.
+// risk_answered: the customer's explicit risk answer is recorded (set_risk_profile).
+// capacity_computed: find_savings_capacity succeeded earlier in this turn.
+const PRECONDITIONS = Object.freeze({ propose_plan: Object.freeze(['risk_answered', 'capacity_computed']) });
 
 function valid(value, spec) {
   if (spec.type === 'object') {
@@ -222,4 +230,4 @@ function createTools({ store, journey }) {
     }
   } };
 }
-module.exports = { createTools, SPECS, valid, context, compare };
+module.exports = { createTools, SPECS, NOT_MODEL_CALLABLE, PRECONDITIONS, valid, context, compare };

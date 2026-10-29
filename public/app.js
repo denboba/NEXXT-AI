@@ -547,6 +547,7 @@ function activityPanel() {
           h('b',null,item.tool), item.iteration ? h('small',null,' · '+t('timelineIteration')+' '+item.iteration+(item.source?' · '+item.source:'')) : null,
           why ? h('p',{class:'tl-why'},t('timelineWhy')+': '+(why === 'why_' + item.why ? item.why : why)) : null,
           h('code',null,input.length > 140 ? input.slice(0, 140) + '…' : input),
+          item.guard ? h('p',{class:'tl-guard',role:'note'},t('timelineGuard')+': '+item.guard+' · '+t('guard_'+item.guard)) : null,
           item.result ? h('p',{class:'tl-result'},t('timelineResult')+': '+item.result) : null,
           h('span',null,(item.error?t('rejected'):t('completed'))+' · '+item.summary+' · '+item.ms+' ms')));
     })));
