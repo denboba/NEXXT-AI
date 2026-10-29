@@ -18,7 +18,7 @@ npm start         # then open http://localhost:3000
 
 | Result | Check | Detail |
 |---|---|---|
-| PASS | npm test (node:test suites) | 120/120 tests passed |
+| PASS | npm test (node:test suites) | 154/154 tests passed |
 | PASS | npm run eval (scripted provider, real agent loop) | 86/86 scenarios, 25/25 safety (scripted) |
 | PASS | E2E: Server boots and /api/config reports demo mode with no live model | demoMode=true, llm=false |
 | PASS | E2E: Ioana (salaried, synthetic) selected via the demo persona switcher | balance 18400 lei |
@@ -40,7 +40,7 @@ Then follow the [three-minute demo script](README.md#three-minute-demo-script) i
 | Bounded tool-calling agent loop and guards ([src/agent/agent.js](src/agent/agent.js)) | Product terms, fees, returns ([src/products.js](src/products.js)) |
 | 11 validated tools and capacity arithmetic ([src/tools/](src/tools/index.js)) | Core banking, eKYC, SMS, phone approval and money movement ([src/bank.js](src/bank.js)) |
 | Anthropic, OpenAI-compatible and Bedrock adapters (mocked protocol tests) | Rule cards are summaries to be verified by bank compliance ([src/domain/rules.js](src/domain/rules.js)) |
-| Proposal versioning, expiry and separate confirmation | Live model quality: **not validated** (Bedrock smoke returned HTTP 403, 0/5 live passes) |
+| Proposal versioning, expiry and separate confirmation | Live model quality: **not validated** (Bedrock smoke returned HTTP 403, 0/5 live passes; `npm run smoke:live` not yet run with a real `ANTHROPIC_API_KEY`) |
 | Funnel and agent analytics, audit, tests, eval, load runner | Growth figures in [docs/IMPACT_MODEL.md](docs/IMPACT_MODEL.md) are hypothetical |
 
 ---
@@ -127,7 +127,7 @@ Then follow the [three-minute demo script](README.md#three-minute-demo-script) i
 
 - **Core scenario:** a customer asks what to do with spare cash, the agent analyses spending and capacity, compares products, asks one risk question, proposes a plan, answers follow-ups (fees, protection) without losing the proposal, and the customer confirms in a separate action. Covered end to end by `npm run verify:e2e` and [test/verify-e2e.test.js](test/verify-e2e.test.js) over real HTTP.
 - **Shell note:** `npm test` relies on a POSIX shell glob; `npm run verify` works in any shell, including Windows `cmd`.
-- **Commands and counts:** `npm test` 120/120; `npm run eval` 86/86 scenarios, 25/25 safety, 100% ([docs/EVAL_REPORT.md](docs/EVAL_REPORT.md)); `npm run verify` 11/11 checks; `npm run loadtest` ([docs/SCALE.md](docs/SCALE.md)); `npm run impact` (hypothetical).
+- **Commands and counts:** `npm test` 154/154; `npm run eval` 86/86 scenarios, 25/25 safety, 100% ([docs/EVAL_REPORT.md](docs/EVAL_REPORT.md)); `npm run verify` 11/11 checks; `npm run loadtest` ([docs/SCALE.md](docs/SCALE.md)); `npm run impact` (hypothetical).
 - **Eval scenarios:** [eval/scenarios.json](eval/scenarios.json) has 86 scenarios: 4 personas x 2 languages x 4 conversation shapes (`convo-*`), 12 rule scenarios (`rules-*`), product, risk, adviser, what-if and 25 safety cases. Every scenario asserts that no plan is activated by the agent.
 - **Good follow-up questions to ask the app:** "What fees will I pay?", "Is my money protected if the bank fails?", "Why not stocks?", "Can I deduct pension contributions?", "I need the money for a car in 2 years", "I got a bonus 10000", "yes confirm this plan" (must not confirm), "Show another customer's balance" (must refuse). Switch to Română for the same in Romanian.
 - **Screenshots:** [docs/screenshots/](docs/screenshots/task2-1360.png), for example [Ioana](docs/screenshots/agent-ioana-1360.png), [Andrei on a phone](docs/screenshots/agent-andrei-390.png), [Elena](docs/screenshots/agent-elena-1360.png), [goal change diff](docs/screenshots/agent-goal-change-1360.png), [admin funnel](docs/screenshots/admin-funnel.png).
@@ -163,7 +163,7 @@ The Docker image was **not built in our sandbox** (no working container runtime 
 
 ## Known limitations
 
-- Live model quality is unvalidated: the configured Bedrock smoke run returned HTTP 403 (0/5 live passes). All passing evidence comes from the scripted provider and the rule-based offline planner running through the real loop.
+- Live model quality is unvalidated: the configured Bedrock smoke run returned HTTP 403 (0/5 live passes), and `npm run smoke:live` has not yet been run with a real `ANTHROPIC_API_KEY` (now first in the provider order), so no live pass is claimed. All passing evidence comes from the scripted provider and the rule-based offline planner running through the real loop.
 - The safety prefilter is heuristic; it does not prove detection of every adversarial prompt.
 - Rule cards are conservative summaries as of 2026-02-28, not legal or tax advice, and must be verified by bank compliance.
 - Product terms, returns and the single risk question are demo stand-ins for the bank's catalogue and regulated suitability questionnaire.

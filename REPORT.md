@@ -1,6 +1,6 @@
 # Implementation report
 
-The original Task 1 record below is historical, and so are the Task 2 counts. The **Submission readiness** section at the end records the current branch, checks and counts (120 tests, 86/86 scenarios, 25/25 safety, 11 tools); the live-access limitation is unchanged.
+The original Task 1 record below is historical, and so are the Task 2 counts. The **Submission readiness** section at the end records that work and its counts at the time (120 tests). The **Live AI path (Homeward pattern)** section after it records the current counts (154 tests, 86/86 scenarios, 25/25 safety, 11 tools); no live pass is claimed.
 
 Branch: `agent-upgrade`, created from `origin/main` at `ad2f8bd9ebb5abd7f989d3643f261f7088d8f9df`. No commit was made to main. Existing deck, source PDF and history were preserved.
 
@@ -487,3 +487,30 @@ Tools (`require('./src/tools').SPECS`): `get_customer_profile`, `get_spending_su
 - Live model quality is not validated: the last configured Bedrock smoke run returned HTTP 403 (0/5 live passes). All passing evidence uses the scripted provider and the rule-based offline planner through the real loop.
 - `docker build` was not executed: the sandbox has no working container runtime (`docker info` fails). The container environment was checked by booting `server.js` with `NODE_ENV=production`, `DEMO_MODE=1` and a custom `DB_PATH`; the healthcheck request to `/api/config` returned 200.
 - Rule cards are informational summaries as of 2026-02-28, flagged for bank compliance verification; they are not legal or tax advice.
+
+## Live AI path (Homeward pattern)
+
+Branch: `submission-readiness`. Goal: make the live model path usable in the demo without changing the product, the tools, the safety rules or the offline planner's answers. Commits are local on this branch.
+
+| Commit | Change |
+|---|---|
+| `0972be6` | Provider selection: an explicit `LLM_PROVIDER` wins; blank uses anthropic > openai > bedrock > offline, so a Bedrock token no longer overrides an Anthropic key. |
+| `618430e` | Streaming Anthropic adapter: `stream: true`, `temperature: 0`, cached system block plus session-context block, SSE line reader with no new dependency, tool input only from `input_json_delta`, `LLM_FIRST_TOKEN_MS` (default 6000) first-event and idle timeout, cache usage reported. Parser tested with recorded event fixtures. |
+| `119dfe7` | Tool guard ([src/agent/guard.js](src/agent/guard.js)) before every tool call in both paths, with codes `UNKNOWN_TOOL`, `NOT_MODEL_CALLABLE`, `INVALID_ARGS`, `PRECONDITION_NOT_MET`, `DUPLICATE_CALL`; audited and shown in the Activity timeline. |
+| `536e328` | Mid-turn failover: the offline planner finishes the turn without re-running completed tools, keeps streamed text, drops the failed call's tool calls, emits a `fallback` event and logs `[nexxt] live provider failed: <code>`. A client abort ends with HTTP 499 and no fallback. |
+| `acc0f76` | Visible mode: header badge `Live · <model>` or `Offline planner`, per-turn fallback notice, `provider`/`model` in `/api/config`; `smoke:live` exits 1 on any fallback unless `SMOKE_ALLOW_FALLBACK=1`. |
+
+### Commands and results
+
+```text
+npm run verify
+| PASS | npm test (node:test suites) | 154/154 tests passed |
+| PASS | npm run eval (scripted provider, real agent loop) | 86/86 scenarios, 25/25 safety (scripted) |
+All 11 checks passed.
+Mode: offline deterministic planner, no external model or network call.
+```
+
+### Limits
+
+- `npm run smoke:live` has not been run with a real `ANTHROPIC_API_KEY`; no key is configured in this environment. No live pass, live latency or live cost is claimed. The default model identifier `claude-sonnet-5-5` is not verified against the live API; set `COACH_MODEL` to an identifier your key can use.
+- The Anthropic streaming, guard and failover behaviour is covered by mocked SSE fixtures and the scripted provider, not by a real model.
