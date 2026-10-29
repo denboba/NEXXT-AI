@@ -1,6 +1,6 @@
 # Implementation report
 
-The original Task 1 record below is historical. The **Task 2** section at the end records the current branch, checks and live-access limitation.
+The original Task 1 record below is historical, and so are the Task 2 counts. The **Submission readiness** section at the end records the current branch, checks and counts (119 tests, 83/83 scenarios, 24/24 safety, 11 tools); the live-access limitation is unchanged.
 
 Branch: `agent-upgrade`, created from `origin/main` at `ad2f8bd9ebb5abd7f989d3643f261f7088d8f9df`. No commit was made to main. Existing deck, source PDF and history were preserved.
 
@@ -449,3 +449,41 @@ T7 was completed before T5/T6 to prioritize the user's explicit request to integ
 Remaining limits: Bedrock authorization and exact Opus ID/availability require secure settings outside repository code. Full live quality and actual model pricing remain unverified. Rule-based/heuristic safety tests do not prove arbitrary-model semantic safety. The JSON store, process-local locks/progress/limits, fixed synthetic date and banking/identity stand-ins remain demo constraints; production needs transactions, shared state, consent, global budgets and real integrations. Preview allocations and business ladders are advisory; this demo does not open actual deposits. No claim of millions of customers, commercial uplift or production readiness is made.
 
 Reusable cloud start instructions were saved for agent-polish, reset, connection, live smoke, impact and current access diagnosis. Existing installation/secret bindings were preserved. Startup and repeatable setup were exercised in this instance; saving the draft does not publish a snapshot or establish restoration in a fresh task. GitHub API access is now available, unlike the historical Task 1 limitation; the requested final operation is draft PR creation only, never merge.
+
+## Submission readiness
+
+Branch: `submission-readiness`, created from `main` at `3f33362`. Goal: map the work to the six jury criteria and make it verifiable in one command. Commits are local on this branch.
+
+### What changed
+
+| Commit | Change |
+|---|---|
+| `4eb2b50` | `src/domain/rules.js`: 18 cited, versioned rule cards over 7 topics (EN/RO). New 11th tool `check_rules`; `compare_products` cites rule topics and deposit protection. Deposit-protection questions are answered while return guarantees are still refused. 9 new `rules-*` eval scenarios and [test/rules.test.js](test/rules.test.js). |
+| `f877364` | `npm run verify` and `npm run verify:e2e` ([scripts/verify.js](scripts/verify.js)), [test/verify-e2e.test.js](test/verify-e2e.test.js), [Dockerfile](Dockerfile), `.dockerignore`, [CI workflow](.github/workflows/ci.yml) on Node 20 and 22. |
+| docs commit | [JUDGING.md](JUDGING.md) criteria map, [docs/DOMAIN.md](docs/DOMAIN.md), [docs/BUSINESS.md](docs/BUSINESS.md), refreshed README/ARCHITECTURE/IMPACT_MODEL counts, and [test/unexpected.test.js](test/unexpected.test.js) (malformed tool call, unknown tool, provider HTTP 403, stale proposal version). |
+
+### Commands and results (real output, Node v22)
+
+```text
+npm test
+# tests 119
+# pass 119
+# fail 0
+
+npm run eval
+"scenarios": 83, "passed": 83, "failed": 0, "passRate": 100,
+"safetyScenarios": 24, "safetyPassed": 24, "safetyPassRate": 100,
+"estimatedCostPerConversationUsd": 0
+
+npm run verify
+All 11 checks passed.
+Mode: offline deterministic planner, no external model or network call.
+```
+
+Tools (`require('./src/tools').SPECS`): `get_customer_profile`, `get_spending_summary`, `find_savings_capacity`, `compare_products`, `simulate`, `what_if`, `set_risk_profile`, `propose_plan`, `request_authentication`, `handoff_to_adviser`, `check_rules`.
+
+### Limits unchanged
+
+- Live model quality is not validated: the last configured Bedrock smoke run returned HTTP 403 (0/5 live passes). All passing evidence uses the scripted provider and the rule-based offline planner through the real loop.
+- `docker build` was not executed: the sandbox has no working container runtime (`docker info` fails). The container environment was checked by booting `server.js` with `NODE_ENV=production`, `DEMO_MODE=1` and a custom `DB_PATH`; the healthcheck request to `/api/config` returned 200.
+- Rule cards are informational summaries as of 2026-02-28, flagged for bank compliance verification; they are not legal or tax advice.

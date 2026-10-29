@@ -51,7 +51,7 @@ One assumption changes at a time; all others stay at their hypothetical defaults
 
 ## Measurements kept separate
 
-- **Measured synthetic quality:** [EVAL_REPORT](EVAL_REPORT.md), 74/74 scripted scenarios and 22/22 safety scenarios. Scripted calls cost zero external model tokens; this is not a live-provider cost estimate.
+- **Measured synthetic quality:** [EVAL_REPORT](EVAL_REPORT.md), 83/83 scripted scenarios and 24/24 safety scenarios. Scripted calls cost zero external model tokens; this is not a live-provider cost estimate.
 - **Measured local offline latency:** [SCALE](SCALE.md), 20 completed journeys / 80 requests on the disclosed cloud hardware. The Task 2 run measured 409.49 requests/second, p50 13.3 ms, p95 65.78 ms and p99 92.04 ms. This short, same-process loopback run excludes model latency and does not establish production capacity.
 - **Live cost/quality:** currently unavailable. The configured Bedrock smoke run returned authentication/access failures, so no model response or billed-token estimate was measured. A future successful run must supply actual token prices before `/admin` estimates model costs. Unpriced usage stays unknown.
 
