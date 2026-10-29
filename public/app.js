@@ -117,10 +117,14 @@ async function send(input, path = '/api/chat') {
   clearTimeout(S.progressTimer); S.pending = false; S.progress = null; render();
 }
 
-// Badge: the last turn's mode wins; before any turn, the configured provider decides.
+// Badge: the last answered turn's mode wins; before any turn, the configured provider decides.
+// A safety refusal is answered by fixed text without the provider, so it says nothing about
+// which path is active and keeps the previous label.
 function modeLabel() {
-  const live = S.agent.mode === 'agent' || (!S.agent.mode && S.config?.llm);
-  const model = (S.agent.mode === 'agent' && S.agent.model) || S.config?.model || S.config?.provider || '';
+  if (!S.agent.refusalReason) S.agentMode = { mode: S.agent.mode, model: S.agent.model };
+  const last = S.agentMode || {};
+  const live = last.mode === 'agent' || (!last.mode && S.config?.llm);
+  const model = (last.mode === 'agent' && last.model) || S.config?.model || S.config?.provider || '';
   return live ? t('modeLive', { model }) : t('modeOfflinePlanner');
 }
 const fallbackText = code => t(['auth', 'timeout', 'throttled', 'guard_rejection'].includes(code) ? 'fallback_' + code : 'fallbackProvider');
