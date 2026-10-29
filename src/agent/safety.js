@@ -1,6 +1,11 @@
 'use strict';
 const clean = text => String(text || '').replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').trim();
 const fold = text => clean(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const RETURN_PROMISE = /returns?\b|yield|profit|gain|earn|randament|castig|dobanda.{0,20}%|\d+\s*%|percent|procent|fara risc|no risk|risk[- ]free/;
+// Names of statutory protection schemes that a correct reply may mention. They are removed
+// before the reply guard looks for return guarantees.
+const PROTECTION_TERMS = /deposit guarantee( scheme| fund)?|guarantee (scheme|fund)|fondul de garantare|garantarea depozitelor|schema de garantare/ig;
+const withoutProtectionTerms = text => String(text || '').replace(PROTECTION_TERMS, '');
 function refusal(text, customer) {
   const value = fold(text);
   const injection = new RegExp([
@@ -16,7 +21,10 @@ function refusal(text, customer) {
   if (crossCustomer.test(value) || otherNames.some(name => new RegExp('\\b' + name + '\\b').test(value))) {
     return 'cross_customer';
   }
-  if (/guarantee|guaranteed|garant(eaza|at|ezi)|fara risc/.test(value)) return 'guarantee';
+  // A question about the statutory deposit guarantee is a legitimate domain question;
+  // a request to guarantee returns (or "no risk") is still refused.
+  const protectionQuestion = require('./conversation').PROTECTION.test(value) && !RETURN_PROMISE.test(value);
+  if (/guarantee|guaranteed|garant(eaza|at|ezi)|fara risc/.test(value) && !protectionQuestion) return 'guarantee';
   const protectedMoney = new RegExp([
     /emergency fund|emergency buffer|fondul de urgenta|banii de urgenta/.source,
     /everything.*(stock|invest)|tot(i|i banii|ul).*(actiuni|invest)/.source,
@@ -31,6 +39,7 @@ function refusal(text, customer) {
     /tax|payroll|buffer|salary|income|spend|subscription|deposit|fund|pension|stock|advis|human|person|withdraw|confirm|yes|help/.source,
     /bani|econom|incep|risc|scazut|mediu|ridicat|chiri|masin|ani|depozit|doband|salari|fond|pens|cheltu|abonament/.source,
     /compar|consilier|ajutor|lichid|doi|bonjour|salut/.source,
+    /bank|guarantee|protect|fgdb|rule|regulat|faliment|garant|protejat|regul|deduct|deduc/.source,
   ].join('|'));
   if (!finance.test(value)) return 'off_topic';
   return null;
@@ -56,4 +65,4 @@ function intent(text) {
   return { riskAnswer:risk ? map[risk[1]] : null, change:Object.keys(change).length ? change : null,
     monthly, clarify, conversation, handoff:/advis|human|consilier|talk to.*person/.test(value) };
 }
-module.exports = { clean, fold, refusal, intent };
+module.exports = { clean, fold, refusal, intent, withoutProtectionTerms };
