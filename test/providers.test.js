@@ -31,3 +31,16 @@ test('Anthropic and Bedrock combine a tool batch into one user result message',a
     await provider.complete({...request,messages});assert.equal(body.messages.length,3);assert.equal(body.messages[2].role,'user');assert.equal(body.messages[2].content.length,2);
   }
 });
+test('blank LLM_PROVIDER prefers anthropic > openai > bedrock; explicit LLM_PROVIDER wins',()=>{
+  const all={ANTHROPIC_API_KEY:'a',COMPAT_API_KEY:'c',AWS_BEARER_TOKEN_BEDROCK:'b',AWS_REGION:'eu-west-2',BEDROCK_MODEL_ID:'m'};
+  const name=env=>select({env,fetchImpl:()=>{throw new Error('Must not fetch');}})?.name??null;
+  assert.equal(name({ANTHROPIC_API_KEY:'a',AWS_BEARER_TOKEN_BEDROCK:'b'}),'anthropic');
+  assert.equal(name({...all,LLM_PROVIDER:''}),'anthropic');
+  assert.equal(name({...all,LLM_PROVIDER:'  '}),'anthropic');
+  assert.equal(name({COMPAT_API_KEY:'c',AWS_BEARER_TOKEN_BEDROCK:'b'}),'openai');
+  assert.equal(name({AWS_BEARER_TOKEN_BEDROCK:'b'}),'bedrock');
+  assert.equal(name({...all,LLM_PROVIDER:'bedrock'}),'bedrock');
+  assert.equal(name({...all,LLM_PROVIDER:'openai'}),'openai');
+  assert.equal(name({...all,LLM_PROVIDER:'offline'}),null);
+  assert.equal(name({ANTHROPIC_API_KEY:'a',LLM_PROVIDER:'bedrock'}),null);
+});
