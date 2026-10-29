@@ -3,7 +3,7 @@
 > **For the jury:** [JUDGING.md](JUDGING.md) maps each of the six assessment criteria to concrete files, tests and eval scenarios. To check everything in one command (Node 20+, no install):
 >
 > ```bash
-> npm run setup && npm run verify   # 154 tests, 86/86 scenarios (25/25 safety), end-to-end core scenario
+> npm run setup && npm run verify   # 157 tests, 86/86 scenarios (25/25 safety), end-to-end core scenario
 > ```
 >
 > Domain rules and constraints: [docs/DOMAIN.md](docs/DOMAIN.md). Users, value and adoption: [docs/BUSINESS.md](docs/BUSINESS.md).
@@ -33,7 +33,7 @@ flowchart LR
 
 Safety comes before conversion. Buffers, taxes and payroll are protected, product segment and suitability are checked on the server, model replies cannot invent numeric figures, and every activation needs the separate Confirm action. A chat message saying “yes” cannot activate a plan. Debits are separate demo actions and also preserve protected reserves. Merchant and profile text are untrusted data; tools accept no customer identifier.
 
-**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **86/86 scripted scenarios**, including **25/25 safety scenarios**; `npm test` runs **154 tests** and `npm run verify` passes **11/11 checks**. This is deterministic CI evidence, not a live-model score. The configured Bedrock smoke run returned **0/5 live passes (HTTP 403 access denied)**; `npm run smoke:live` has not yet been run with a real `ANTHROPIC_API_KEY`, so no live pass is claimed; full live quality remains unvalidated and the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 409.49 requests/sec**, p50 **13.3 ms**, p95 **65.78 ms**, p99 **92.04 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
+**Evidence:** [EVAL_REPORT](docs/EVAL_REPORT.md) records **86/86 scripted scenarios**, including **25/25 safety scenarios**; `npm test` runs **157 tests** and `npm run verify` passes **11/11 checks**. This is deterministic CI evidence, not a live-model score. The configured Bedrock smoke run returned **0/5 live passes (HTTP 403 access denied)**; `npm run smoke:live` has not yet been run with a real `ANTHROPIC_API_KEY`, so no live pass is claimed; full live quality remains unvalidated and the 90% live target is not claimed. [SCALE](docs/SCALE.md) records a short local run of **20/20 journeys, 80 requests, 409.49 requests/sec**, p50 **13.3 ms**, p95 **65.78 ms**, p99 **92.04 ms**, with limits enabled. These are loopback measurements with the app and load generator in one process, not production capacity. See [REPORT](REPORT.md) for the complete checklist and limitations.
 
 ### Run in 60 seconds
 
@@ -84,7 +84,7 @@ Set values securely in `.env` or environment settings; all variables are describ
 
 Bedrock uses the regional HTTPS runtime endpoint and API-key bearer authentication, with no SDK dependency. **The requested Opus 5.5 identifier and availability in London are not verified.** Copy the identifier from the Bedrock console; do not use the display name or silently substitute another model. Adapters have mocked protocol tests. The latest configured Bedrock calls received HTTP 403 AccessDeniedException; no real model response has been validated. The configured model identifier does not match the requested Opus model; correct the secure key/access and exact console model/profile identifier before repeating the smoke run. See [LIVE_RUNBOOK](docs/LIVE_RUNBOOK.md).
 
-**Anthropic streaming and prompt caching.** The Anthropic adapter calls the Messages API with `stream: true` and `temperature: 0`, and parses the server-sent events with `fetch` and a line reader (no SDK). The system prompt is sent as two blocks: the fixed coach instructions marked `cache_control: {type: "ephemeral"}`, then the per-session context. Tool input is assembled only from `input_json_delta` fragments; thinking, signature and citation deltas are ignored, and an empty tool input becomes `{}`. Usage includes `cache_read_input_tokens` and `cache_creation_input_tokens` when the API reports them. `LLM_FIRST_TOKEN_MS` (default 6000) aborts the call with a `timeout` error if no stream event arrives in time or the gap between two events is longer. The OpenAI-compatible and Bedrock adapters append the session context to the system prompt.
+**Anthropic streaming and prompt caching.** The Anthropic adapter calls the Messages API with `stream: true` and `temperature: 0`, and parses the server-sent events with `fetch` and a line reader (no SDK). The system prompt is sent as two blocks: the fixed coach instructions marked `cache_control: {type: "ephemeral"}`, then the per-session context. Tool input is assembled only from `input_json_delta` fragments; thinking, signature and citation deltas are ignored, and an empty tool input becomes `{}`. Usage includes `cache_read_input_tokens` and `cache_creation_input_tokens` when the API reports them; both count toward the token budget, and the cost estimate prices cache reads at 0.1x and cache writes at 1.25x the input rate. `LLM_FIRST_TOKEN_MS` (default 6000) aborts the call with a `timeout` error if no stream event arrives in time or the gap between two events is longer. The OpenAI-compatible and Bedrock adapters append the session context to the system prompt.
 
 **Tool guard.** Before every tool runs, in both the live and the offline path, [src/agent/guard.js](src/agent/guard.js) checks it. A failed check does not run the tool; the model receives `{status: "REJECTED", code, detail}` with one of these codes:
 
@@ -98,7 +98,7 @@ Bedrock uses the regional HTTPS runtime endpoint and API-key bearer authenticati
 
 Each rejection is audited and shown in the Activity timeline as `guard: <CODE>`.
 
-**Mid-turn failover.** If the live provider fails after some tool calls succeeded, the offline planner finishes the same turn. Tools that already returned results are not run again, text streamed before the failure is kept (`streamedText`), and the tool calls from the failed provider call are dropped. A `fallback` event is emitted and the server logs `[nexxt] live provider failed: <code>`. A client that disconnects aborts the provider call instead: no fallback runs, no messages are persisted and the request ends with HTTP 499.
+**Mid-turn failover.** If the live provider fails after some tool calls succeeded, the offline planner finishes the same turn. Tools that already returned results are not run again, text streamed before the failure, including partial text of the failed call, is kept in the turn result (`streamedText`) but not shown in the chat because it never passed the reply guard, and the tool calls from the failed provider call are dropped. A `fallback` event is emitted and the server logs `[nexxt] live provider failed: <code>`. If the guard rejects every call the offline planner issues in one step, the planner stops instead of repeating it. A client that disconnects aborts the provider call instead: no fallback runs, no further tool runs, no chat message or turn metrics are stored and the request ends with HTTP 499. Tools that completed before the disconnect (for example a proposal preview or an adviser handoff) keep their effects.
 
 **Visible mode.** The chat header badge shows `Live · <model>` when the turn was answered by the model, otherwise `Offline planner`. `GET /api/config` reports `provider` and `model`. When a live turn falls back, a short notice with the reason appears under that coach reply and in the Activity panel. `npm run smoke:live` exits 0 only when every turn stayed live, 1 if any turn failed or fell back (unless `SMOKE_ALLOW_FALLBACK=1`), and 2 when no provider is configured. It has not been run with a real `ANTHROPIC_API_KEY` in this environment, so no live pass is claimed.
 
@@ -146,7 +146,7 @@ New-account onboarding still enforces details → ID number → selfie → OTP s
 Every activation requires a validated proposal followed by the separate Confirm endpoint. Demo top-ups and scheduled-debit stand-ins are explicit account actions; debits protect the buffer and obligations. Repeated presentations use the header reset, rather than deleting the database. `/admin` shows the original funnel plus `context_connected`, conversation/tool/mode/cost metrics and the adviser queue.
 
 ```bash
-npm test      # 154 tests: original flows plus tools, rules, conversation, providers, progress, confirmation, safety, unexpected situations and the end-to-end jury scenario
+npm test      # 157 tests: original flows plus tools, rules, conversation, providers, progress, confirmation, safety, unexpected situations and the end-to-end jury scenario
 ```
 
 ## How it is built
