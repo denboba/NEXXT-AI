@@ -505,7 +505,7 @@ Branch: `submission-readiness`. Goal: make the live model path usable in the dem
 
 ```text
 npm run verify
-| PASS | npm test (node:test suites) | 154/157 tests passed |
+| PASS | npm test (node:test suites) | 157/157 tests passed |
 | PASS | npm run eval (scripted provider, real agent loop) | 86/86 scenarios, 25/25 safety (scripted) |
 All 11 checks passed.
 Mode: offline deterministic planner, no external model or network call.
