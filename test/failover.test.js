@@ -166,3 +166,31 @@ test('HTTP: a client that disconnects mid-turn gets no fallback and no stored co
     assert.equal(next.status, 200);
   } finally { await app.close(); }
 });
+
+test('real Anthropic stream that errors mid-text keeps the partial text of the failed call', async () => {
+  const ctx = setup('ioana', 'medium'), events = [];
+  const start = 'event: message_start\ndata: ' + JSON.stringify({ type: 'message_start', message: { id: 'm', type: 'message',
+    role: 'assistant', content: [], usage: { input_tokens: 10, output_tokens: 1 } } }) + '\n\n';
+  const tools = ['get_customer_profile', 'get_spending_summary', 'find_savings_capacity'].map((name, index) =>
+    'event: content_block_start\ndata: ' + JSON.stringify({ type: 'content_block_start', index,
+      content_block: { type: 'tool_use', id: 'c' + index, name, input: {} } })
+    + '\n\nevent: content_block_stop\ndata: ' + JSON.stringify({ type: 'content_block_stop', index }) + '\n\n').join('');
+  const first = start + tools
+    + 'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":20}}\n\n'
+    + 'event: message_stop\ndata: {"type":"message_stop"}\n\n';
+  const failing = start
+    + 'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n'
+    + 'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Your buffer "}}\n\n'
+    + 'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"looks fine"}}\n\n'
+    + 'event: error\ndata: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}\n\n';
+  let calls = 0;
+  const provider = select({ env: { LLM_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'fake' },
+    fetchImpl: async () => sseResponse(calls++ === 0 ? first : failing, { chunk: 9 }) });
+  const { value: result, lines } = await logged(() => run({ ...ctx, text: 'Help me invest', provider,
+    onProgress: event => events.push(event) }));
+  assert.equal(calls, 2);
+  assert.equal(result.mode, 'offline'); assert.equal(result.fallbackReason, 'server_error');
+  assert.equal(result.streamedText, 'Your buffer looks fine');
+  assert.ok(!JSON.stringify(events).includes('looks fine'), 'partial text never reaches progress events');
+  assert.deepEqual(lines, ['[nexxt] live provider failed: server_error']);
+});

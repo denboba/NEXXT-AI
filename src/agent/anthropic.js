@@ -23,6 +23,7 @@ const ERRORS = { overloaded_error: 'server_error', api_error: 'server_error', ra
 
 // Folds Anthropic SSE events into { text, toolCalls, usage }. Tool input is built ONLY from
 // input_json_delta fragments; thinking, signature, citation and unknown deltas are ignored.
+// Text deltas are also reported through onEvent so a call that fails mid-text keeps its partial text.
 function parse(json) {
   let input;
   try { input = json.trim() ? JSON.parse(json) : {}; } catch { throw failure('bad_response'); }
@@ -30,7 +31,7 @@ function parse(json) {
   return input;
 }
 
-function collector() {
+function collector(onEvent) {
   const blocks = [], usage = { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0,
     cacheCreationInputTokens: 0, reported: false };
   let started = false, stopped = false, stopReason = null;
@@ -57,7 +58,10 @@ function collector() {
     if (type === 'content_block_delta') {
       const block = blocks[payload.index], delta = payload.delta || {};
       if (!block) return;
-      if (delta.type === 'text_delta' && block.type === 'text') block.text += delta.text || '';
+      if (delta.type === 'text_delta' && block.type === 'text') {
+        block.text += delta.text || '';
+        if (delta.text) onEvent?.({ type: 'text_delta', text: delta.text });
+      }
       else if (delta.type === 'input_json_delta' && block.type === 'tool_use') block.json += delta.partial_json || '';
       return;
     }
@@ -97,7 +101,7 @@ function create({ env, fetchImpl = fetch }) {
       // empty text blocks, so the second block is only sent when context is a non-empty string.
       const blocks = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } },
         ...(typeof context === 'string' && context ? [{ type: 'text', text: context }] : [])];
-      const stream = collector();
+      const stream = collector(onEvent);
       await requestStream(fetchImpl, 'https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
