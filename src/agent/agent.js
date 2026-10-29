@@ -26,6 +26,34 @@ function price(usage,env,provider) {
     || !Number.isFinite(input) || !Number.isFinite(output) || input < 0 || output < 0) return null;
   return (usage.inputTokens*input+usage.outputTokens*output)/1000000;
 }
+const WHY = { get_customer_profile: 'need_profile', get_spending_summary: 'need_spending',
+  find_savings_capacity: 'need_capacity', set_risk_profile: 'risk_answer', compare_products: 'compare',
+  simulate: 'project_outcome', what_if: 'what_if', propose_plan: 'make_proposal', check_rules: 'rule_question',
+  request_authentication: 'need_login', handoff_to_adviser: 'adviser' };
+// Compact, PII-free human summary of a tool output for the visible orchestration timeline.
+function resultOf(name, output) {
+  if (!output || typeof output !== 'object') return '';
+  if (output.error) return 'rejected: ' + String(output.error).slice(0, 100);
+  const parts = [];
+  const add = (label, value) => { if (value !== undefined && value !== null && value !== '') parts.push(label + '=' + value); };
+  switch (name) {
+    case 'get_customer_profile': add('segment', output.segment); add('horizonYears', output.horizonYears); break;
+    case 'get_spending_summary': add('monthlyIncome', output.monthlyIncome); add('monthlySpend', output.monthlySpend);
+      add('monthlySurplus', output.monthlySurplus); break;
+    case 'find_savings_capacity': add('safeMonthly', output.safeMonthly); add('buffer', output.buffer);
+      add('bufferReady', output.bufferReady); break;
+    case 'set_risk_profile': add('risk', output.risk); if (output.unchanged) parts.push('unchanged'); break;
+    case 'compare_products': add('products', (output.products || []).length);
+      add('eligible', (output.products || []).filter(item => item.eligible).map(item => item.id).join('|')); break;
+    case 'simulate': add('monthly', output.monthly); add('years', output.years); add('fund', output.fund);
+      add('cashReal', output.cashReal); break;
+    case 'propose_plan': add('monthly', output.proposal?.monthly); add('product', output.proposal?.productId);
+      add('version', output.proposal?.version); break;
+    case 'check_rules': add('topic', output.topic); add('rules', (output.rules || []).length); break;
+    default: add('ui', output.ui?.type);
+  }
+  return (parts.join(', ') || output.ui?.type || 'ok').slice(0, 120);
+}
 async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:injected,onProgress}) {
   const began=performance.now(),language=journey.language || 'en';
   text=safety.clean(text).slice(0,500);
@@ -58,6 +86,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   let guardOutcome = provider ? 'pending' : 'offline_template';
   let fallbackHint = null;
   let mode=provider?'agent':'offline',fallbackReason=null,final='';
+  let iteration = 0, source = 'offline';
   function tool(call) {
     const started=performance.now();
     emit({ type: 'tool_start', tool: call.name });
@@ -66,7 +95,9 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
     if(output.ui && (!input.conversation || output.ui.type === 'rules' || ['market', 'inflation']
       .includes(input.conversation.topic) && output.ui.type === 'simulation')) cards.push(output.ui);
     trace.push({ tool: call.name, input: call.input, summary: output.error ? 'rejected' : output.ui?.type || 'profile',
-      ms: Number((performance.now() - started).toFixed(2)), error: Boolean(output.error) });
+      ms: Number((performance.now() - started).toFixed(2)), error: Boolean(output.error),
+      step: trace.filter(item => item.kind !== 'provider').length + 1, iteration, source,
+      why: WHY[call.name] || 'other', result: resultOf(call.name, output) });
     emit({ type: 'tool_end', tool: call.name, code: output.error ? 'rejected' : 'ok' });
     store.db.audit.push({ at: new Date().toISOString(), personaId: store.db.users[journey.userId]?.personaId || 'anonymous',
       tool: specs.some(spec => spec.name === call.name) ? call.name : 'unknown_tool',
@@ -75,9 +106,10 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   }
   function context() { return {text,results,risk:journey.coach?.profile.risk,language,memory:journey.memory || {}}; }
   function fallback() {
-    mode='offline';
+    mode='offline'; source='offline';
     emit({ type: 'fallback', code: fallbackReason || 'no_provider' });
-    for(let iteration=0;iteration<6;iteration++) {
+    for(let loop=0;loop<6;loop++) {
+      iteration++;
       const response=offline.next(context());
       if(!response.toolCalls?.length) break;
       for(const call of response.toolCalls) tool(call);
@@ -88,7 +120,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
   try {
     if(reason) {
       mode='offline'; fallbackReason=reason;
-      if(reason==='protected_money' && customer) tool({name:'find_savings_capacity',input:{}});
+      if(reason==='protected_money' && customer) iteration++, tool({name:'find_savings_capacity',input:{}});
       final=t(language,'refusal_'+reason);
       guardOutcome = 'refused';
     } else if(!provider) final=fallback();
@@ -151,6 +183,7 @@ async function run({store,journey,text,env=process.env,fetchImpl=fetch,provider:
         if(calls.length) {
           if(++toolIterations>6 || calls.length>10) throw new Error('tool_limit');
           if(calls.some(call=>!call || typeof call.name!=='string' || typeof call.id!=='string')) throw new Error('invalid_tool_call');
+          iteration++; source='agent';
           messages.push({role:'assistant',content:response.text || '',toolCalls:calls});
           for(const call of calls) messages.push({role:'tool',toolCallId:call.id,name:call.name,content:JSON.stringify(tool(call))});
           continue;

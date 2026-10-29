@@ -532,9 +532,23 @@ function activityPanel() {
       t(['auth', 'timeout', 'throttled', 'guard_rejection'].includes(S.agent.fallbackReason)
         ? 'fallback_' + S.agent.fallbackReason : 'fallbackProvider')) : null,
     !S.pending && !S.agent.trace?.length ? h('p', { class: 'disc' }, t('emptyActivity')) : null,
-    h('ol',null,(S.agent.trace || []).map(item=>h('li',null,
-      h('b',null,item.tool),h('code',null,JSON.stringify(item.input)),
-      h('span',null,(item.error?t('rejected'):t('completed'))+' · '+item.summary+' · '+item.ms+' ms')))));
+    S.agent.trace?.length ? h('p', { class: 'timeline-head' },
+      t('timelineMode') + ': ' + (S.agent.mode === 'agent' ? t('modeAgent') : t('modeOffline'))
+      + (S.agent.fallbackReason ? ' · ' + t('timelineFallback') + ': ' + S.agent.fallbackReason : '')
+      + ' · ' + t('timelineProviderCalls') + ': ' + (S.agent.providerCalls || []).length
+      + ' · ' + t('timelineSteps') + ': ' + S.agent.trace.filter(item => item.kind !== 'provider').length) : null,
+    h('ol',{class:'timeline'},(S.agent.trace || []).map(item=>{
+      const why = item.why ? t('why_' + item.why) : '';
+      const input = JSON.stringify(item.input || {});
+      return h('li',{class:'tl-step' + (item.error ? ' tl-error' : '')},
+        h('span',{class:'tl-badge'},item.kind === 'provider' ? '!' : String(item.step ?? '')),
+        h('div',{class:'tl-body'},
+          h('b',null,item.tool), item.iteration ? h('small',null,' · '+t('timelineIteration')+' '+item.iteration+(item.source?' · '+item.source:'')) : null,
+          why ? h('p',{class:'tl-why'},t('timelineWhy')+': '+(why === 'why_' + item.why ? item.why : why)) : null,
+          h('code',null,input.length > 140 ? input.slice(0, 140) + '…' : input),
+          item.result ? h('p',{class:'tl-result'},t('timelineResult')+': '+item.result) : null,
+          h('span',null,(item.error?t('rejected'):t('completed'))+' · '+item.summary+' · '+item.ms+' ms')));
+    })));
 }
 
 function agentCard(card) {

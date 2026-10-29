@@ -138,3 +138,14 @@ select,summary{font:inherit}
 .chart-axis{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:16px;color:var(--mute)}
 .dark .chart-axis{color:#C8C6BE}
 .dark .kv span:first-child,.dark .disc{color:#C8C6BE}
+
+/* Orchestration timeline in the Activity panel */
+.timeline-head { font-size: .85rem; font-weight: 600; margin: .4rem 0; }
+.activity ol.timeline { list-style: none; padding: 0 0 0 .2rem; margin: .4rem 0; border-left: 2px solid #c9d3e0; }
+.timeline .tl-step { display: flex; gap: .5rem; position: relative; margin: 0 0 .6rem -.75rem; }
+.timeline .tl-badge { flex: 0 0 1.4rem; height: 1.4rem; border-radius: 50%; background: #1f4e8c; color: #fff;
+  font-size: .75rem; display: flex; align-items: center; justify-content: center; }
+.timeline .tl-error .tl-badge { background: #b3261e; }
+.timeline .tl-body { min-width: 0; font-size: .82rem; }
+.timeline .tl-body code { display: block; overflow-wrap: anywhere; font-size: .75rem; opacity: .8; }
+.timeline .tl-why, .timeline .tl-result { margin: .1rem 0; }

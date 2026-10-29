@@ -74,6 +74,8 @@ Then follow the [three-minute demo script](README.md#three-minute-demo-script) i
 
 **Loop** ([src/agent/agent.js](src/agent/agent.js) `run()`): at most 6 tool iterations and 10 calls per batch, 9 completions, 30 s total deadline (`LLM_TIMEOUT_MS`, max 60 s), 20 s per provider call, a token budget (`LLM_TOKEN_BUDGET`, default 24,000), one guard retry, then the offline planner finishes the turn with the same tools. A safety prefilter runs before any tool ([src/agent/safety.js](src/agent/safety.js)).
 
+**Visible orchestration timeline.** Every tool call in a turn is recorded as a numbered trace step with `step`, `iteration` (planning loop round), `source` (`agent` when the live model chose it, `offline` for the deterministic planner), `why` (rationale code such as `need_capacity` or `make_proposal`), the validated `input`, a compact PII-free `result` (for example `safeMonthly=500, buffer=10200`), status and ms. The chat **Activity** panel (open by default on desktop in demo mode) renders this as a timeline with a header showing mode, fallback reason, model calls and tool steps. The same data is in the `trace` field of `POST /api/agent`. For Ioana, "I have some spare cash, what should I do?" then "medium" shows 7 steps over 4 iterations ending in `propose_plan` (no money moves until confirmation).
+
 **The 11 tools** ([src/tools/index.js](src/tools/index.js)). None accepts a customer identifier; all read the customer from the server session.
 
 | Tool | What it decides or produces |

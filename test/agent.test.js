@@ -102,3 +102,16 @@ test('persona login greets with the agent, not the scripted amount questions', a
   const ro = app.client(); await ro.post('/api/journey', {}); await ro.post('/api/language', { language: 'ro' });
   assert.match((await ro.post('/api/persona', { persona: 'mihai' })).data.messages[0].text, /^Bună, Mihai!/);
 });
+test('offline trace is a visible numbered orchestration timeline with why and result',async()=>{
+  const ctx=setup('ioana');
+  await run({...ctx,text:'I have some spare cash, what should I do?',provider:null});
+  const result=await run({...ctx,text:'medium',provider:null});
+  const steps=result.trace.filter(item=>item.kind!=='provider');
+  assert.ok(steps.length>=3);assert.ok(steps.some(item=>item.tool==='propose_plan'));
+  steps.forEach((item,index)=>{
+    assert.equal(item.step,index+1);assert.equal(item.source,'offline');
+    assert.ok(typeof item.why==='string' && item.why.length>0);assert.equal(typeof item.result,'string');
+    assert.ok(Number.isInteger(item.iteration) && item.iteration>=1);
+    assert.doesNotMatch(item.result,/persona-|Ioana/);
+  });
+});
